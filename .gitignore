@@ -1,0 +1,23 @@
+# CMake
+/build/
+/build-*/
+
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.ninja
+*.dir/
+
+# Visual Studio / MSBuild
+.vs/
+*.user
+*.vcxproj.user
+*.VC.db
+*.VC.opendb
+.ipch/
+*.opendb
+
+# macOS / editors
+.DS_Store
+*.swp
