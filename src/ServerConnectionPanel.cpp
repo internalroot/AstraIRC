@@ -832,7 +832,6 @@ void ServerConnectionPanel::OnInputKeyDown(wxKeyEvent& evt)
     }
     else if (keyCode == WXK_TAB)
     {
-        // Tab completion for nicknames
         wxString text = m_input->GetValue();
         long insertPos = m_input->GetInsertionPoint();
 
@@ -845,6 +844,37 @@ void ServerConnectionPanel::OnInputKeyDown(wxKeyEvent& evt)
         if (prefix.IsEmpty())
             return;
 
+        // Command completion - if prefix starts with / and we're at the beginning
+        if (prefix.StartsWith("/") && wordStart == 0)
+        {
+            // Available commands
+            static const wxArrayString commands = {
+                "/exit", "/join", "/j", "/leave", "/me", "/msg",
+                "/nick", "/part", "/privmsg", "/quit", "/raw"
+            };
+
+            // Find matching command
+            wxString match;
+            for (const auto& cmd : commands)
+            {
+                if (cmd.Lower().StartsWith(prefix.Lower()))
+                {
+                    match = cmd;
+                    break;
+                }
+            }
+
+            if (!match.IsEmpty())
+            {
+                // Replace prefix with match
+                wxString after = text.Mid(insertPos);
+                m_input->SetValue(match + " " + after);
+                m_input->SetInsertionPoint(match.Length() + 1);
+            }
+            return;
+        }
+
+        // Tab completion for nicknames (existing logic)
         // Get current channel's nick list
         int sel = m_viewBook->GetSelection();
         if (sel <= 0)

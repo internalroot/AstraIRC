@@ -23,7 +23,7 @@ Cross-platform IRC client built with C++ and wxWidgets.
 - [x] Threaded networking with GUI marshalling
 - [x] Commands: /join, /part, /nick, /msg, /me, /quit, /raw
 
-### AstraIRC (v1.1.0) — In Progress 🚧
+### AstraIRC (v1.1.0) ✅
 
 - [x] Auto-reconnect with toggle — Reconnect on disconnect; preference to enable/disable
 - [x] Server password support — Send PASS before NICK/USER
@@ -31,7 +31,7 @@ Cross-platform IRC client built with C++ and wxWidgets.
 - [x] Clickable URLs — Detect links, open in browser on click
 - [x] Configurable timestamps — Toggle on/off; choose 12-hour or 24-hour format
 - [x] Window title updates — Show activity/current channel in title
-- [ ] Tab completion — Complete nicks and commands with Tab key
+- [x] Tab completion — Complete nicks and commands with Tab key
 
 ---
 
@@ -49,7 +49,7 @@ Cross-platform IRC client built with C++ and wxWidgets.
 - [x] **Clickable URLs** — Detect links, open in browser on click
 - [x] **Configurable timestamps** — Toggle on/off; choose 12-hour or 24-hour format
 - [x] **Window title updates** — Show activity/current channel in title
-- [ ] **Tab completion** — Complete nicks and commands with Tab key
+- [x] **Tab completion** — Complete nicks and commands with Tab key
 
 ---
 
