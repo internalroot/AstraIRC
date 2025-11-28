@@ -13,6 +13,7 @@
 #include "ChannelPage.h"
 #include "irc_core.h"
 #include "AppSettings.h"
+#include "UserInfo.h"
 
 // -------------------------------------------------------
 // ServerConnectionPanel
@@ -60,6 +61,9 @@ public:
     void FocusInput();
     wxTextCtrl* GetInputCtrl() { return m_input; }
 
+    // WHOIS support
+    void RequestWhois(const wxString& nick);
+
 private:
     // Helpers
     wxString BuildConsoleTabTitle() const;
@@ -74,6 +78,7 @@ private:
     void HandleCoreMessage(const wxString& source, const wxString& text);
     void HandleRawLine(const wxString& line);
     void HandleDisconnect();
+    void HandleWhois(const UserInfo& userInfo);
 
     // UI handlers
     void HandleJoinCommand(const wxString& text);

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(AstraIRC VERSION 1.1.0 LANGUAGES CXX)
+project(AstraIRC VERSION 1.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -52,6 +52,9 @@ set(SOURCES
     src/ChannelPage.h
     src/irc_core.cpp
     src/irc_core.h
+    src/UserInfo.h
+    src/UserProfileDialog.cpp
+    src/UserProfileDialog.h
 )
 
 add_executable(AstraIRC ${SOURCES})

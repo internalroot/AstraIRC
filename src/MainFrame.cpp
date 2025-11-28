@@ -229,6 +229,21 @@ MainFrame::MainFrame()
     SetStatusText("Not connected");
 
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
+
+    // Create server notebook for multiple connections
+    m_serverNotebook = new wxAuiNotebook(
+        this, wxID_ANY,
+        wxDefaultPosition, wxDefaultSize,
+        wxAUI_NB_DEFAULT_STYLE |
+        wxAUI_NB_CLOSE_ON_ACTIVE_TAB |
+        wxAUI_NB_CLOSE_ON_ALL_TABS
+    );
+
+    m_serverNotebook->Bind(wxEVT_AUINOTEBOOK_PAGE_CLOSE,
+                           &MainFrame::OnServerTabClosed,
+                           this);
+
+    mainSizer->Add(m_serverNotebook, 1, wxEXPAND | wxALL, 5);
     SetSizer(mainSizer);
 
     // Default connection settings
@@ -278,43 +293,41 @@ void MainFrame::OnMenuConnect(wxCommandEvent&)
     m_defaultNick = nick;
     m_defaultPassword = password;
 
-    if (!m_serverPanel)
-    {
-        m_serverPanel = new ServerConnectionPanel(this, server, port, nick, m_settings, password);
-        GetSizer()->Add(m_serverPanel, 1, wxEXPAND);
-    }
-    else
-    {
-        m_serverPanel->ConnectWith(server, port, nick, password);
-    }
+    // Create a new server connection panel
+    auto* serverPanel = new ServerConnectionPanel(m_serverNotebook, server, port, nick, m_settings, password);
+    wxString tabTitle = GenerateServerTabTitle(server, nick);
 
-    Layout();
+    int pageIdx = m_serverNotebook->AddPage(serverPanel, tabTitle, true);
+    m_serverPanels[pageIdx] = serverPanel;
+
     SetStatusText("Connecting to " + server + ":" + port + "...");
 }
 
 void MainFrame::OnMenuDisconnect(wxCommandEvent&)
 {
-    if (!m_serverPanel)
+    ServerConnectionPanel* panel = GetCurrentServerPanel();
+    if (!panel)
     {
         wxMessageBox("No active connection to disconnect.",
                      "Disconnect", wxOK | wxICON_INFORMATION, this);
         return;
     }
 
-    m_serverPanel->DisconnectCore();
+    panel->DisconnectCore();
     SetStatusText("Disconnected");
 }
 
 void MainFrame::OnMenuChangeNick(wxCommandEvent&)
 {
-    if (!m_serverPanel)
+    ServerConnectionPanel* panel = GetCurrentServerPanel();
+    if (!panel)
     {
         wxMessageBox("No active server.",
                      "Change Nick", wxOK | wxICON_INFORMATION, this);
         return;
     }
 
-    wxString currentNick = m_serverPanel->GetNick();
+    wxString currentNick = panel->GetNick();
 
     wxTextEntryDialog dlg(this,
                           "Enter new nickname:",
@@ -324,7 +337,7 @@ void MainFrame::OnMenuChangeNick(wxCommandEvent&)
     {
         wxString newNick = dlg.GetValue();
         if (!newNick.IsEmpty())
-            m_serverPanel->RequestNickChange(newNick);
+            panel->RequestNickChange(newNick);
     }
 }
 
@@ -343,10 +356,11 @@ void MainFrame::OnMenuPreferences(wxCommandEvent&)
     {
         m_settings = dlg.GetSettings();
 
-        // Apply settings to existing server panel if present
-        if (m_serverPanel)
+        // Apply settings to all server panels
+        for (auto& [idx, panel] : m_serverPanels)
         {
-            m_serverPanel->ApplySettings(m_settings);
+            if (panel)
+                panel->ApplySettings(m_settings);
         }
     }
 }
@@ -354,10 +368,13 @@ void MainFrame::OnMenuPreferences(wxCommandEvent&)
 void MainFrame::OnMenuAbout(wxCommandEvent&)
 {
     wxMessageBox(
-        "AstraIRC v1.0.0\n\n"
+        "AstraIRC v1.2.0\n\n"
         "A modern, cross-platform IRC client\n"
         "built with wxWidgets.\n\n"
-        "Supports Windows, macOS, and Linux.",
+        "Supports Windows, macOS, and Linux.\n\n"
+        "New in v1.2.0:\n"
+        "- User Profile Window (WHOIS)\n"
+        "- Multiple server connections",
         "About AstraIRC",
         wxOK | wxICON_INFORMATION,
         this);
@@ -366,9 +383,52 @@ void MainFrame::OnMenuAbout(wxCommandEvent&)
 void MainFrame::OnActivate(wxActivateEvent& evt)
 {
     // When window is activated, focus the input box
-    if (evt.GetActive() && m_serverPanel)
+    if (evt.GetActive())
     {
-        m_serverPanel->FocusInput();
+        ServerConnectionPanel* panel = GetCurrentServerPanel();
+        if (panel)
+            panel->FocusInput();
     }
     evt.Skip();
+}
+
+ServerConnectionPanel* MainFrame::GetCurrentServerPanel()
+{
+    if (!m_serverNotebook)
+        return nullptr;
+
+    int selection = m_serverNotebook->GetSelection();
+    if (selection == wxNOT_FOUND)
+        return nullptr;
+
+    auto it = m_serverPanels.find(selection);
+    if (it != m_serverPanels.end())
+        return it->second;
+
+    return nullptr;
+}
+
+wxString MainFrame::GenerateServerTabTitle(const wxString& server, const wxString& nick)
+{
+    return server + " (" + nick + ")";
+}
+
+void MainFrame::OnServerTabClosed(wxAuiNotebookEvent& evt)
+{
+    int page = evt.GetSelection();
+
+    // Remove from map
+    auto it = m_serverPanels.find(page);
+    if (it != m_serverPanels.end())
+    {
+        // Disconnect before closing
+        if (it->second)
+            it->second->DisconnectCore();
+
+        m_serverPanels.erase(it);
+    }
+
+    // Update status
+    if (m_serverPanels.empty())
+        SetStatusText("Not connected");
 }

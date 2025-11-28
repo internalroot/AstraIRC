@@ -6,6 +6,8 @@
 #include <atomic>
 #include <mutex>
 #include <vector>
+#include <map>
+#include "UserInfo.h"
 
 // Platform-specific socket type
 #ifdef _WIN32
@@ -27,6 +29,7 @@ public:
     using MessageCallback = std::function<void(const std::string& source, const std::string& text)>;
     using RawLineCallback = std::function<void(const std::string&)>;
     using DisconnectCallback = std::function<void()>;
+    using WhoisCallback = std::function<void(const UserInfo&)>;
 
     IRCCore();
     ~IRCCore();
@@ -42,6 +45,7 @@ public:
     void setMessageCallback(MessageCallback cb);
     void setRawLineCallback(RawLineCallback cb);
     void setDisconnectCallback(DisconnectCallback cb);
+    void setWhoisCallback(WhoisCallback cb);
 
     // Connection management
     void connectToServer(const std::string& host, int port, const std::string& nick, const std::string& password = "");
@@ -56,6 +60,9 @@ public:
 
     // Accessors
     std::string getNick() const;
+
+    // WHOIS support
+    void requestWhois(const std::string& nick);
 
 private:
     // Internal helpers
@@ -83,6 +90,11 @@ private:
     MessageCallback onMessage;
     RawLineCallback onRawLine;
     DisconnectCallback onDisconnect;
+    WhoisCallback onWhois;
+
+    // WHOIS tracking
+    std::mutex whoisMutex;
+    std::map<std::string, UserInfo> pendingWhois;
 
     // Outgoing queue
     std::mutex sendMutex;
