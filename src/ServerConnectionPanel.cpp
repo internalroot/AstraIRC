@@ -1,4 +1,5 @@
 #include "ServerConnectionPanel.h"
+#include "UserProfileDialog.h"
 
 #include <wx/frame.h>
 #include <wx/msgdlg.h>
@@ -105,6 +106,10 @@ ServerConnectionPanel::ServerConnectionPanel(wxWindow* parent,
 
     m_core.setDisconnectCallback([this]() {
         CallAfter([this]() { HandleDisconnect(); });
+    });
+
+    m_core.setWhoisCallback([this](const UserInfo& userInfo) {
+        CallAfter([this, userInfo]() { HandleWhois(userInfo); });
     });
 
     // Bind reconnect timer
@@ -961,4 +966,24 @@ void ServerConnectionPanel::UpdateWindowTitle()
     }
 
     frame->SetTitle(title);
+}
+
+void ServerConnectionPanel::RequestWhois(const wxString& nick)
+{
+    if (nick.IsEmpty())
+        return;
+
+    std::string stdNick = std::string(nick.ToUTF8());
+    m_core.requestWhois(stdNick);
+}
+
+void ServerConnectionPanel::HandleWhois(const UserInfo& userInfo)
+{
+    // Don't show profile if we're being destroyed
+    if (m_isDestroying)
+        return;
+
+    // Create and show the profile dialog
+    UserProfileDialog* dlg = new UserProfileDialog(this, userInfo, this);
+    dlg->Show();
 }

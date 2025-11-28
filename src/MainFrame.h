@@ -2,6 +2,8 @@
 
 #include <wx/frame.h>
 #include <wx/string.h>
+#include <wx/aui/aui.h>
+#include <map>
 #include "AppSettings.h"
 
 class ServerConnectionPanel;
@@ -20,9 +22,14 @@ private:
     void OnMenuPreferences(wxCommandEvent& evt);
     void OnMenuAbout(wxCommandEvent& evt);
     void OnActivate(wxActivateEvent& evt);
+    void OnServerTabClosed(wxAuiNotebookEvent& evt);
+
+    ServerConnectionPanel* GetCurrentServerPanel();
+    wxString GenerateServerTabTitle(const wxString& server, const wxString& nick);
 
 private:
-    ServerConnectionPanel* m_serverPanel = nullptr;
+    wxAuiNotebook* m_serverNotebook = nullptr;
+    std::map<int, ServerConnectionPanel*> m_serverPanels;
 
     wxString m_defaultServer;
     wxString m_defaultPort;

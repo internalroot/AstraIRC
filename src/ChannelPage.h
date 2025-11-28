@@ -42,7 +42,10 @@ public:
     void SetSettings(const AppSettings* settings);
 
 private:
+    void OnNickDoubleClick(wxCommandEvent& evt);
+
     wxString m_channelName;
     LogPanel* m_log = nullptr;
     wxListBox* m_nickList = nullptr;
+    ServerConnectionPanel* m_serverPanel = nullptr;
 };

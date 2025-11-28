@@ -95,7 +95,8 @@ void LogPanel::OnURL(wxTextUrlEvent& evt)
 
 ChannelPage::ChannelPage(wxWindow* parent, const wxString& channelName, const AppSettings* settings, ServerConnectionPanel* serverPanel)
     : wxPanel(parent, wxID_ANY),
-      m_channelName(channelName)
+      m_channelName(channelName),
+      m_serverPanel(serverPanel)
 {
     m_log = new LogPanel(this, settings, serverPanel);
     m_nickList = new wxListBox(this, wxID_ANY);
@@ -104,6 +105,9 @@ ChannelPage::ChannelPage(wxWindow* parent, const wxString& channelName, const Ap
     wxFont font = m_nickList->GetFont();
     font.SetFamily(wxFONTFAMILY_TELETYPE);
     m_nickList->SetFont(font);
+
+    // Bind double-click event on nick list
+    m_nickList->Bind(wxEVT_LISTBOX_DCLICK, &ChannelPage::OnNickDoubleClick, this);
 
     auto* sizer = new wxBoxSizer(wxHORIZONTAL);
     sizer->Add(m_log, 3, wxEXPAND | wxALL, 2);
@@ -136,4 +140,24 @@ void ChannelPage::SetSettings(const AppSettings* settings)
 {
     if (m_log)
         m_log->SetSettings(settings);
+}
+
+void ChannelPage::OnNickDoubleClick(wxCommandEvent& evt)
+{
+    int selection = m_nickList->GetSelection();
+    if (selection == wxNOT_FOUND)
+        return;
+
+    wxString nick = m_nickList->GetString(selection);
+
+    // Remove channel prefix symbols (@, +, %, ~, etc.)
+    while (!nick.IsEmpty() && !wxIsalnum(nick[0]) && nick[0] != '[' && nick[0] != '{' && nick[0] != '_')
+        nick = nick.Mid(1);
+
+    if (nick.IsEmpty())
+        return;
+
+    // Request WHOIS from the server panel
+    if (m_serverPanel)
+        m_serverPanel->RequestWhois(nick);
 }

@@ -71,6 +71,11 @@ void IRCCore::setDisconnectCallback(DisconnectCallback cb)
     onDisconnect = std::move(cb);
 }
 
+void IRCCore::setWhoisCallback(WhoisCallback cb)
+{
+    onWhois = std::move(cb);
+}
+
 void IRCCore::log(const std::string& msg)
 {
     if (onLog)
@@ -88,6 +93,24 @@ std::string IRCCore::getNick() const
 {
     std::lock_guard<std::mutex> lock(nickMutex);
     return currentNick;
+}
+
+void IRCCore::requestWhois(const std::string& nick)
+{
+    if (nick.empty() || !isConnected())
+        return;
+
+    // Initialize a new WHOIS entry
+    {
+        std::lock_guard<std::mutex> lock(whoisMutex);
+        UserInfo& info = pendingWhois[nick];
+        info.clear();
+        info.nick = nick;
+        info.whoisInProgress = true;
+    }
+
+    sendRaw("WHOIS " + nick);
+    log("Requested WHOIS for " + nick);
 }
 
 void IRCCore::closeSocket()
@@ -468,7 +491,7 @@ void IRCCore::handleServerLine(const std::string& line)
             if (sp2 != std::string::npos)
             {
                 std::string command = line.substr(sp1 + 1, sp2 - (sp1 + 1));
-                
+
                 // Handle PRIVMSG for the message callback
                 if (command == "PRIVMSG")
                 {
@@ -490,17 +513,329 @@ void IRCCore::handleServerLine(const std::string& line)
                 {
                     auto bang = prefix.find('!');
                     std::string oldNick = (bang != std::string::npos) ? prefix.substr(0, bang) : prefix;
-                    
+
                     std::string newNick;
                     auto colon = line.find(" :", sp2);
                     if (colon != std::string::npos)
                         newNick = line.substr(colon + 2);
                     else
                         newNick = line.substr(sp2 + 1);
-                    
+
                     std::lock_guard<std::mutex> lock(nickMutex);
                     if (oldNick == currentNick)
                         currentNick = newNick;
+                }
+                // Handle WHOIS numeric responses
+                else if (command == "311")  // RPL_WHOISUSER
+                {
+                    // :server 311 yournick targetnick username hostname * :realname
+                    std::vector<std::string> parts;
+                    std::string rest = line.substr(sp2 + 1);
+
+                    // Split by spaces, handling :trailing part
+                    size_t pos = 0;
+                    while (pos < rest.length())
+                    {
+                        if (rest[pos] == ':')
+                        {
+                            parts.push_back(rest.substr(pos + 1));
+                            break;
+                        }
+                        size_t next = rest.find(' ', pos);
+                        if (next == std::string::npos)
+                        {
+                            parts.push_back(rest.substr(pos));
+                            break;
+                        }
+                        parts.push_back(rest.substr(pos, next - pos));
+                        pos = next + 1;
+                    }
+
+                    if (parts.size() >= 5)
+                    {
+                        std::string targetNick = parts[1];
+                        std::lock_guard<std::mutex> lock(whoisMutex);
+                        auto it = pendingWhois.find(targetNick);
+                        if (it != pendingWhois.end())
+                        {
+                            it->second.username = parts[2];
+                            it->second.hostname = parts[3];
+                            it->second.realname = parts[5];
+                        }
+                    }
+                }
+                else if (command == "312")  // RPL_WHOISSERVER
+                {
+                    // :server 312 yournick targetnick servername :serverinfo
+                    std::vector<std::string> parts;
+                    std::string rest = line.substr(sp2 + 1);
+
+                    size_t pos = 0;
+                    while (pos < rest.length())
+                    {
+                        if (rest[pos] == ':')
+                        {
+                            parts.push_back(rest.substr(pos + 1));
+                            break;
+                        }
+                        size_t next = rest.find(' ', pos);
+                        if (next == std::string::npos)
+                        {
+                            parts.push_back(rest.substr(pos));
+                            break;
+                        }
+                        parts.push_back(rest.substr(pos, next - pos));
+                        pos = next + 1;
+                    }
+
+                    if (parts.size() >= 3)
+                    {
+                        std::string targetNick = parts[1];
+                        std::lock_guard<std::mutex> lock(whoisMutex);
+                        auto it = pendingWhois.find(targetNick);
+                        if (it != pendingWhois.end())
+                        {
+                            it->second.server = parts[2];
+                            if (parts.size() >= 4)
+                                it->second.serverInfo = parts[3];
+                        }
+                    }
+                }
+                else if (command == "313")  // RPL_WHOISOPERATOR
+                {
+                    // :server 313 yournick targetnick :is an IRC operator
+                    std::vector<std::string> parts;
+                    std::string rest = line.substr(sp2 + 1);
+
+                    size_t pos = 0;
+                    while (pos < rest.length())
+                    {
+                        if (rest[pos] == ':')
+                        {
+                            parts.push_back(rest.substr(pos + 1));
+                            break;
+                        }
+                        size_t next = rest.find(' ', pos);
+                        if (next == std::string::npos)
+                        {
+                            parts.push_back(rest.substr(pos));
+                            break;
+                        }
+                        parts.push_back(rest.substr(pos, next - pos));
+                        pos = next + 1;
+                    }
+
+                    if (parts.size() >= 2)
+                    {
+                        std::string targetNick = parts[1];
+                        std::lock_guard<std::mutex> lock(whoisMutex);
+                        auto it = pendingWhois.find(targetNick);
+                        if (it != pendingWhois.end())
+                        {
+                            it->second.isOperator = true;
+                            if (parts.size() >= 3)
+                                it->second.operatorInfo = parts[2];
+                        }
+                    }
+                }
+                else if (command == "317")  // RPL_WHOISIDLE
+                {
+                    // :server 317 yournick targetnick idle signon :seconds idle, signon time
+                    std::vector<std::string> parts;
+                    std::string rest = line.substr(sp2 + 1);
+
+                    size_t pos = 0;
+                    while (pos < rest.length())
+                    {
+                        if (rest[pos] == ':')
+                        {
+                            parts.push_back(rest.substr(pos + 1));
+                            break;
+                        }
+                        size_t next = rest.find(' ', pos);
+                        if (next == std::string::npos)
+                        {
+                            parts.push_back(rest.substr(pos));
+                            break;
+                        }
+                        parts.push_back(rest.substr(pos, next - pos));
+                        pos = next + 1;
+                    }
+
+                    if (parts.size() >= 4)
+                    {
+                        std::string targetNick = parts[1];
+                        std::lock_guard<std::mutex> lock(whoisMutex);
+                        auto it = pendingWhois.find(targetNick);
+                        if (it != pendingWhois.end())
+                        {
+                            it->second.idleSeconds = std::atoi(parts[2].c_str());
+                            it->second.signonTime = std::atol(parts[3].c_str());
+                        }
+                    }
+                }
+                else if (command == "318")  // RPL_ENDOFWHOIS
+                {
+                    // :server 318 yournick targetnick :End of WHOIS list
+                    std::vector<std::string> parts;
+                    std::string rest = line.substr(sp2 + 1);
+
+                    size_t pos = 0;
+                    while (pos < rest.length())
+                    {
+                        if (rest[pos] == ':')
+                        {
+                            parts.push_back(rest.substr(pos + 1));
+                            break;
+                        }
+                        size_t next = rest.find(' ', pos);
+                        if (next == std::string::npos)
+                        {
+                            parts.push_back(rest.substr(pos));
+                            break;
+                        }
+                        parts.push_back(rest.substr(pos, next - pos));
+                        pos = next + 1;
+                    }
+
+                    if (parts.size() >= 2)
+                    {
+                        std::string targetNick = parts[1];
+                        std::lock_guard<std::mutex> lock(whoisMutex);
+                        auto it = pendingWhois.find(targetNick);
+                        if (it != pendingWhois.end())
+                        {
+                            it->second.whoisComplete = true;
+                            it->second.whoisInProgress = false;
+
+                            // Notify via callback
+                            if (onWhois)
+                            {
+                                UserInfo info = it->second;
+                                lock.~lock_guard();  // Release lock before callback
+                                onWhois(info);
+                            }
+
+                            // Clean up
+                            pendingWhois.erase(it);
+                        }
+                    }
+                }
+                else if (command == "319")  // RPL_WHOISCHANNELS
+                {
+                    // :server 319 yournick targetnick :@#chan1 +#chan2 #chan3
+                    std::vector<std::string> parts;
+                    std::string rest = line.substr(sp2 + 1);
+
+                    size_t pos = 0;
+                    while (pos < rest.length())
+                    {
+                        if (rest[pos] == ':')
+                        {
+                            parts.push_back(rest.substr(pos + 1));
+                            break;
+                        }
+                        size_t next = rest.find(' ', pos);
+                        if (next == std::string::npos)
+                        {
+                            parts.push_back(rest.substr(pos));
+                            break;
+                        }
+                        parts.push_back(rest.substr(pos, next - pos));
+                        pos = next + 1;
+                    }
+
+                    if (parts.size() >= 3)
+                    {
+                        std::string targetNick = parts[1];
+                        std::string channelList = parts[2];
+
+                        std::lock_guard<std::mutex> lock(whoisMutex);
+                        auto it = pendingWhois.find(targetNick);
+                        if (it != pendingWhois.end())
+                        {
+                            // Split channels by space
+                            std::string::size_type start = 0;
+                            std::string::size_type end = 0;
+                            while ((end = channelList.find(' ', start)) != std::string::npos)
+                            {
+                                it->second.channels.push_back(channelList.substr(start, end - start));
+                                start = end + 1;
+                            }
+                            if (start < channelList.length())
+                                it->second.channels.push_back(channelList.substr(start));
+                        }
+                    }
+                }
+                else if (command == "330")  // RPL_WHOISACCOUNT
+                {
+                    // :server 330 yournick targetnick accountname :is logged in as
+                    std::vector<std::string> parts;
+                    std::string rest = line.substr(sp2 + 1);
+
+                    size_t pos = 0;
+                    while (pos < rest.length())
+                    {
+                        if (rest[pos] == ':')
+                        {
+                            parts.push_back(rest.substr(pos + 1));
+                            break;
+                        }
+                        size_t next = rest.find(' ', pos);
+                        if (next == std::string::npos)
+                        {
+                            parts.push_back(rest.substr(pos));
+                            break;
+                        }
+                        parts.push_back(rest.substr(pos, next - pos));
+                        pos = next + 1;
+                    }
+
+                    if (parts.size() >= 3)
+                    {
+                        std::string targetNick = parts[1];
+                        std::lock_guard<std::mutex> lock(whoisMutex);
+                        auto it = pendingWhois.find(targetNick);
+                        if (it != pendingWhois.end())
+                        {
+                            it->second.account = parts[2];
+                        }
+                    }
+                }
+                else if (command == "301")  // RPL_AWAY
+                {
+                    // :server 301 yournick targetnick :away message
+                    std::vector<std::string> parts;
+                    std::string rest = line.substr(sp2 + 1);
+
+                    size_t pos = 0;
+                    while (pos < rest.length())
+                    {
+                        if (rest[pos] == ':')
+                        {
+                            parts.push_back(rest.substr(pos + 1));
+                            break;
+                        }
+                        size_t next = rest.find(' ', pos);
+                        if (next == std::string::npos)
+                        {
+                            parts.push_back(rest.substr(pos));
+                            break;
+                        }
+                        parts.push_back(rest.substr(pos, next - pos));
+                        pos = next + 1;
+                    }
+
+                    if (parts.size() >= 3)
+                    {
+                        std::string targetNick = parts[1];
+                        std::lock_guard<std::mutex> lock(whoisMutex);
+                        auto it = pendingWhois.find(targetNick);
+                        if (it != pendingWhois.end())
+                        {
+                            it->second.awayMessage = parts[2];
+                        }
+                    }
                 }
             }
         }

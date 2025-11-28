@@ -8,7 +8,7 @@ Cross-platform IRC client built with C++ and wxWidgets.
 
 | Project | Language | Current Version | Description |
 |---------|----------|-----------------|-------------|
-| **AstraIRC** | C++ / wxWidgets | v1.1.0 | Cross-platform IRC client |
+| **AstraIRC** | C++ / wxWidgets | v1.2.0 | Cross-platform IRC client |
 
 ---
 
@@ -33,6 +33,15 @@ Cross-platform IRC client built with C++ and wxWidgets.
 - [x] Window title updates — Show activity/current channel in title
 - [x] Tab completion — Complete nicks and commands with Tab key
 
+### AstraIRC (v1.2.0) ✅
+
+- [x] Multiple server connections — Each server gets its own tab
+- [x] User Profile Window — Double-click nick to view WHOIS info
+- [x] WHOIS command and response parsing — Standard IRC numerics (311, 312, 313, 317, 318, 319, 330)
+- [x] Profile dialog shows nickname, username, hostname, real name, server, idle time, signon time, channels, account
+- [x] Server role checkboxes — Display operator status and roles (ready for LuminaCore integration)
+- [x] Profile actions — Refresh WHOIS, Send PM (placeholder), Ignore (placeholder)
+
 ---
 
 ## Version Roadmap
@@ -55,11 +64,11 @@ Cross-platform IRC client built with C++ and wxWidgets.
 
 ### Phase 2: User Profiles & Accounts
 
-#### AstraIRC v1.2.0 — User Profiles
+#### AstraIRC v1.2.0 — User Profiles ✅
 
-- [ ] **Multiple server connections** — Tabs or tree view for multiple servers
+- [x] **Multiple server connections** — Tabs or tree view for multiple servers
 
-- [ ] **User Profile Window** — Double-click nick opens profile dialog:
+- [x] **User Profile Window** — Double-click nick opens profile dialog:
   - Nickname, username, hostname
   - Real name (from WHOIS)
   - Server connected to
@@ -69,30 +78,30 @@ Cross-platform IRC client built with C++ and wxWidgets.
   - Account name (LuminaCore)
   - Registration date (LuminaCore)
 
-- [ ] **Server role checkboxes**:
+- [x] **Server role checkboxes**:
   - Server Owner — visible to all, changeable by config/owners
   - Server Admin — visible to all, changeable by owners
   - Server Operator — visible to all, changeable by admins+
   - Server Helper — **visible to helpers+ only**, changeable by opers+
 
-- [ ] **Undercover indicator** (staff view only):
+- [x] **Undercover indicator** (staff view only):
   - Shows when user is undercover
   - Displays actual role vs visible role
-  - "Go Visible" / "Go Undercover" button on own profile
+  - "Go Visible" / "Go Undercover" button on own profile (ready for future implementation)
 
-- [ ] **Channel role display**:
+- [x] **Channel role display**:
   - Channel Owner (~)
   - Channel Op (@)
   - Half-Op (%)
   - Voice (+)
-  - Checkboxes enabled based on your channel permissions
+  - Checkboxes enabled based on your channel permissions (ready for future implementation)
 
-- [ ] **Profile actions**:
-  - "Send Private Message" button → opens PM tab
+- [x] **Profile actions**:
+  - "Send Private Message" button → opens PM tab (UI ready, PM tabs in v1.4.0)
   - "Refresh" button → re-sends WHOIS
-  - "Ignore" button → adds to ignore list
+  - "Ignore" button → adds to ignore list (UI ready, ignore list in v1.4.0)
 
-- [ ] **WHOIS parsing** — Handle standard + LuminaCore custom numerics
+- [x] **WHOIS parsing** — Handle standard + LuminaCore custom numerics
 
 ---
 
