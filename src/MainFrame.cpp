@@ -7,6 +7,108 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/button.h>
+#include <wx/checkbox.h>
+#include <wx/radiobut.h>
+#include <wx/statbox.h>
+#include <wx/spinctrl.h>
+
+// ---------- PreferencesDialog (local to this file) ----------
+
+class PreferencesDialog : public wxDialog
+{
+public:
+    PreferencesDialog(wxWindow* parent, const AppSettings& settings)
+        : wxDialog(parent, wxID_ANY, "Preferences",
+                   wxDefaultPosition, wxDefaultSize,
+                   wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+          m_settings(settings)
+    {
+        auto* mainSizer = new wxBoxSizer(wxVERTICAL);
+
+        // Timestamps section
+        auto* timestampBox = new wxStaticBoxSizer(wxVERTICAL, this, "Timestamps");
+
+        m_showTimestamps = new wxCheckBox(this, wxID_ANY, "Show timestamps");
+        m_showTimestamps->SetValue(m_settings.showTimestamps);
+        timestampBox->Add(m_showTimestamps, 0, wxALL, 5);
+
+        auto* formatLabel = new wxStaticText(this, wxID_ANY, "Time format:");
+        timestampBox->Add(formatLabel, 0, wxLEFT | wxRIGHT | wxTOP, 5);
+
+        m_format24Hour = new wxRadioButton(this, wxID_ANY, "24-hour (13:45:30)",
+                                           wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
+        m_format12Hour = new wxRadioButton(this, wxID_ANY, "12-hour (1:45:30 PM)");
+
+        m_format24Hour->SetValue(m_settings.use24HourFormat);
+        m_format12Hour->SetValue(!m_settings.use24HourFormat);
+
+        timestampBox->Add(m_format24Hour, 0, wxLEFT, 20);
+        timestampBox->Add(m_format12Hour, 0, wxLEFT, 20);
+
+        mainSizer->Add(timestampBox, 0, wxEXPAND | wxALL, 10);
+
+        // Connection section
+        auto* connectionBox = new wxStaticBoxSizer(wxVERTICAL, this, "Connection");
+
+        m_autoReconnect = new wxCheckBox(this, wxID_ANY, "Automatically reconnect on disconnect");
+        m_autoReconnect->SetValue(m_settings.autoReconnect);
+        connectionBox->Add(m_autoReconnect, 0, wxALL, 5);
+
+        // Max reconnect attempts
+        auto* attemptsRow = new wxBoxSizer(wxHORIZONTAL);
+        auto* attemptsLabel = new wxStaticText(this, wxID_ANY, "Max reconnect attempts:");
+        m_maxAttempts = new wxSpinCtrl(this, wxID_ANY);
+        m_maxAttempts->SetRange(0, 99);
+        m_maxAttempts->SetValue(m_settings.maxReconnectAttempts);
+
+        attemptsRow->Add(attemptsLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+        attemptsRow->Add(m_maxAttempts, 0);
+
+        connectionBox->Add(attemptsRow, 0, wxALL, 5);
+
+        auto* attemptsNote = new wxStaticText(this, wxID_ANY, "(0 = unlimited attempts)");
+        wxFont noteFont = attemptsNote->GetFont();
+        noteFont.SetPointSize(noteFont.GetPointSize() - 1);
+        attemptsNote->SetFont(noteFont);
+        connectionBox->Add(attemptsNote, 0, wxLEFT, 20);
+
+        mainSizer->Add(connectionBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
+
+        // Buttons
+        auto* btnOk = new wxButton(this, wxID_OK, "OK");
+        auto* btnCancel = new wxButton(this, wxID_CANCEL, "Cancel");
+
+        auto* btnSizer = new wxBoxSizer(wxHORIZONTAL);
+        btnSizer->AddStretchSpacer(1);
+        btnSizer->Add(btnOk, 0, wxRIGHT, 5);
+        btnSizer->Add(btnCancel, 0);
+
+        mainSizer->Add(btnSizer, 0, wxEXPAND | wxALL, 10);
+
+        SetSizerAndFit(mainSizer);
+        CentreOnParent();
+
+        btnOk->SetDefault();
+    }
+
+    AppSettings GetSettings() const
+    {
+        AppSettings settings;
+        settings.showTimestamps = m_showTimestamps->GetValue();
+        settings.use24HourFormat = m_format24Hour->GetValue();
+        settings.autoReconnect = m_autoReconnect->GetValue();
+        settings.maxReconnectAttempts = m_maxAttempts->GetValue();
+        return settings;
+    }
+
+private:
+    AppSettings m_settings;
+    wxCheckBox* m_showTimestamps = nullptr;
+    wxRadioButton* m_format24Hour = nullptr;
+    wxRadioButton* m_format12Hour = nullptr;
+    wxCheckBox* m_autoReconnect = nullptr;
+    wxSpinCtrl* m_maxAttempts = nullptr;
+};
 
 // ---------- QuickConnectDialog (local to this file) ----------
 
@@ -16,7 +118,8 @@ public:
     QuickConnectDialog(wxWindow* parent,
                        const wxString& defaultServer,
                        const wxString& defaultPort,
-                       const wxString& defaultNick)
+                       const wxString& defaultNick,
+                       const wxString& defaultPassword = "")
         : wxDialog(parent, wxID_ANY, "Quick Connect",
                    wxDefaultPosition, wxDefaultSize,
                    wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
@@ -24,19 +127,30 @@ public:
         auto* serverLabel = new wxStaticText(this, wxID_ANY, "Server:");
         auto* portLabel = new wxStaticText(this, wxID_ANY, "Port:");
         auto* nickLabel = new wxStaticText(this, wxID_ANY, "Nickname:");
+        auto* passwordLabel = new wxStaticText(this, wxID_ANY, "Password:");
 
         m_serverCtrl = new wxTextCtrl(this, wxID_ANY, defaultServer);
         m_portCtrl = new wxTextCtrl(this, wxID_ANY, defaultPort);
         m_nickCtrl = new wxTextCtrl(this, wxID_ANY, defaultNick);
+        m_passwordCtrl = new wxTextCtrl(this, wxID_ANY, defaultPassword,
+                                        wxDefaultPosition, wxDefaultSize, wxTE_PASSWORD);
 
-        auto* formSizer = new wxFlexGridSizer(3, 2, 5, 5);
+        auto* formSizer = new wxFlexGridSizer(4, 2, 5, 5);
         formSizer->Add(serverLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
         formSizer->Add(m_serverCtrl, 1, wxEXPAND);
         formSizer->Add(portLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
         formSizer->Add(m_portCtrl, 0, wxEXPAND);
         formSizer->Add(nickLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
         formSizer->Add(m_nickCtrl, 0, wxEXPAND);
+        formSizer->Add(passwordLabel, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 5);
+        formSizer->Add(m_passwordCtrl, 0, wxEXPAND);
         formSizer->AddGrowableCol(1, 1);
+
+        auto* passwordNote = new wxStaticText(this, wxID_ANY,
+            "(Optional - leave blank if not required)");
+        wxFont noteFont = passwordNote->GetFont();
+        noteFont.SetPointSize(noteFont.GetPointSize() - 1);
+        passwordNote->SetFont(noteFont);
 
         auto* btnOk = new wxButton(this, wxID_OK, "Connect");
         auto* btnCancel = new wxButton(this, wxID_CANCEL, "Cancel");
@@ -48,6 +162,7 @@ public:
 
         auto* mainSizer = new wxBoxSizer(wxVERTICAL);
         mainSizer->Add(formSizer, 0, wxEXPAND | wxALL, 10);
+        mainSizer->Add(passwordNote, 0, wxLEFT | wxRIGHT | wxBOTTOM, 10);
         mainSizer->Add(btnSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
 
         SetSizerAndFit(mainSizer);
@@ -59,11 +174,13 @@ public:
     wxString GetServer() const { return m_serverCtrl->GetValue(); }
     wxString GetPort() const { return m_portCtrl->GetValue(); }
     wxString GetNick() const { return m_nickCtrl->GetValue(); }
+    wxString GetPassword() const { return m_passwordCtrl->GetValue(); }
 
 private:
     wxTextCtrl* m_serverCtrl = nullptr;
     wxTextCtrl* m_portCtrl = nullptr;
     wxTextCtrl* m_nickCtrl = nullptr;
+    wxTextCtrl* m_passwordCtrl = nullptr;
 };
 
 // ---------- Menu IDs ----------
@@ -127,6 +244,9 @@ MainFrame::MainFrame()
     Bind(wxEVT_MENU, &MainFrame::OnMenuServerList, this, ID_Menu_ServerList);
     Bind(wxEVT_MENU, &MainFrame::OnMenuPreferences, this, ID_Menu_Preferences);
     Bind(wxEVT_MENU, &MainFrame::OnMenuAbout, this, ID_Menu_About);
+
+    // Window activation
+    Bind(wxEVT_ACTIVATE, &MainFrame::OnActivate, this);
 }
 
 void MainFrame::OnMenuExit(wxCommandEvent&)
@@ -136,13 +256,14 @@ void MainFrame::OnMenuExit(wxCommandEvent&)
 
 void MainFrame::OnMenuConnect(wxCommandEvent&)
 {
-    QuickConnectDialog dlg(this, m_defaultServer, m_defaultPort, m_defaultNick);
+    QuickConnectDialog dlg(this, m_defaultServer, m_defaultPort, m_defaultNick, m_defaultPassword);
     if (dlg.ShowModal() != wxID_OK)
         return;
 
     wxString server = dlg.GetServer();
     wxString port = dlg.GetPort();
     wxString nick = dlg.GetNick();
+    wxString password = dlg.GetPassword();
 
     if (server.IsEmpty() || port.IsEmpty() || nick.IsEmpty())
     {
@@ -155,15 +276,16 @@ void MainFrame::OnMenuConnect(wxCommandEvent&)
     m_defaultServer = server;
     m_defaultPort = port;
     m_defaultNick = nick;
+    m_defaultPassword = password;
 
     if (!m_serverPanel)
     {
-        m_serverPanel = new ServerConnectionPanel(this, server, port, nick);
+        m_serverPanel = new ServerConnectionPanel(this, server, port, nick, m_settings, password);
         GetSizer()->Add(m_serverPanel, 1, wxEXPAND);
     }
     else
     {
-        m_serverPanel->ConnectWith(server, port, nick);
+        m_serverPanel->ConnectWith(server, port, nick, password);
     }
 
     Layout();
@@ -216,10 +338,17 @@ void MainFrame::OnMenuServerList(wxCommandEvent&)
 
 void MainFrame::OnMenuPreferences(wxCommandEvent&)
 {
-    wxMessageBox("Preferences dialog is not implemented yet.",
-                 "Preferences",
-                 wxOK | wxICON_INFORMATION,
-                 this);
+    PreferencesDialog dlg(this, m_settings);
+    if (dlg.ShowModal() == wxID_OK)
+    {
+        m_settings = dlg.GetSettings();
+
+        // Apply settings to existing server panel if present
+        if (m_serverPanel)
+        {
+            m_serverPanel->ApplySettings(m_settings);
+        }
+    }
 }
 
 void MainFrame::OnMenuAbout(wxCommandEvent&)
@@ -232,4 +361,14 @@ void MainFrame::OnMenuAbout(wxCommandEvent&)
         "About AstraIRC",
         wxOK | wxICON_INFORMATION,
         this);
+}
+
+void MainFrame::OnActivate(wxActivateEvent& evt)
+{
+    // When window is activated, focus the input box
+    if (evt.GetActive() && m_serverPanel)
+    {
+        m_serverPanel->FocusInput();
+    }
+    evt.Skip();
 }

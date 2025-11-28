@@ -32,11 +32,15 @@ static wxString NormalizeChannelName(const wxString& name)
 ServerConnectionPanel::ServerConnectionPanel(wxWindow* parent,
                                              const wxString& server,
                                              const wxString& port,
-                                             const wxString& nick)
+                                             const wxString& nick,
+                                             const AppSettings& settings,
+                                             const wxString& password)
     : wxPanel(parent, wxID_ANY),
       m_server(server),
       m_port(port),
-      m_nick(nick)
+      m_nick(nick),
+      m_password(password),
+      m_settings(settings)
 {
     auto* mainSizer = new wxBoxSizer(wxVERTICAL);
 
@@ -51,9 +55,12 @@ ServerConnectionPanel::ServerConnectionPanel(wxWindow* parent,
     m_viewBook->Bind(wxEVT_AUINOTEBOOK_PAGE_CLOSE,
                      &ServerConnectionPanel::OnTabClosed,
                      this);
+    m_viewBook->Bind(wxEVT_AUINOTEBOOK_PAGE_CHANGED,
+                     &ServerConnectionPanel::OnTabChanged,
+                     this);
 
     // Console tab
-    m_consoleView = new LogPanel(m_viewBook);
+    m_consoleView = new LogPanel(m_viewBook, &m_settings, this);
     wxString consoleTabTitle = BuildConsoleTabTitle();
     m_viewBook->AddPage(m_consoleView, consoleTabTitle, true);
 
@@ -76,6 +83,7 @@ ServerConnectionPanel::ServerConnectionPanel(wxWindow* parent,
     // Button + Enter handlers
     m_input->Bind(wxEVT_TEXT_ENTER, &ServerConnectionPanel::OnSend, this);
     m_btnSend->Bind(wxEVT_BUTTON, &ServerConnectionPanel::OnSend, this);
+    m_input->Bind(wxEVT_KEY_DOWN, &ServerConnectionPanel::OnInputKeyDown, this);
 
     // IRCCore callbacks - use CallAfter to marshal to GUI thread
     m_core.setLogCallback([this](const std::string& msg) {
@@ -95,12 +103,35 @@ ServerConnectionPanel::ServerConnectionPanel(wxWindow* parent,
         CallAfter([this, wxLine]() { HandleRawLine(wxLine); });
     });
 
+    m_core.setDisconnectCallback([this]() {
+        CallAfter([this]() { HandleDisconnect(); });
+    });
+
+    // Bind reconnect timer
+    m_reconnectTimer.Bind(wxEVT_TIMER, &ServerConnectionPanel::OnReconnectTimer, this);
+
     // Begin connection
     ConnectCore();
+
+    // Set initial window title
+    UpdateWindowTitle();
 }
 
 ServerConnectionPanel::~ServerConnectionPanel()
 {
+    // Mark that we're being destroyed - prevents any callbacks from doing work
+    m_isDestroying = true;
+
+    // Stop reconnection timer
+    m_reconnectTimer.Stop();
+
+    // Mark as user-disconnected to prevent reconnection attempts
+    m_userDisconnected = true;
+
+    // Clear the disconnect callback before disconnecting to prevent
+    // callbacks after this object is destroyed
+    m_core.setDisconnectCallback(nullptr);
+
     m_core.disconnect();
 }
 
@@ -108,11 +139,17 @@ ServerConnectionPanel::~ServerConnectionPanel()
 
 void ServerConnectionPanel::ConnectWith(const wxString& server,
                                         const wxString& port,
-                                        const wxString& nick)
+                                        const wxString& nick,
+                                        const wxString& password)
 {
     m_server = server;
     m_port = port;
     m_nick = nick;
+    m_password = password;
+
+    m_userDisconnected = false;  // Reset flag for new connection
+    m_reconnectAttempts = 0;     // Reset reconnect attempts
+    m_reconnectTimer.Stop();      // Stop any pending reconnects
 
     if (m_viewBook)
         m_viewBook->SetPageText(0, BuildConsoleTabTitle());
@@ -128,6 +165,8 @@ void ServerConnectionPanel::LogToConsole(const wxString& line)
 
 void ServerConnectionPanel::DisconnectCore()
 {
+    m_userDisconnected = true;  // Mark as user-initiated
+    m_reconnectTimer.Stop();    // Stop any pending reconnects
     m_core.disconnect();
 }
 
@@ -141,6 +180,27 @@ void ServerConnectionPanel::RequestNickChange(const wxString& newNick)
     m_core.sendRaw("NICK " + std::string(newNick.ToUTF8()));
 }
 
+void ServerConnectionPanel::ApplySettings(const AppSettings& settings)
+{
+    m_settings = settings;
+
+    // Apply to console
+    if (m_consoleView)
+        m_consoleView->SetSettings(&m_settings);
+
+    // Apply to all channels
+    for (auto& [name, page] : m_channels)
+    {
+        page->SetSettings(&m_settings);
+    }
+}
+
+void ServerConnectionPanel::FocusInput()
+{
+    if (m_input)
+        m_input->SetFocus();
+}
+
 // ---------- private helpers ----------
 
 wxString ServerConnectionPanel::BuildConsoleTabTitle() const
@@ -150,13 +210,18 @@ wxString ServerConnectionPanel::BuildConsoleTabTitle() const
 
 void ServerConnectionPanel::ConnectCore()
 {
+    // Don't try to connect if we're being destroyed
+    if (m_isDestroying)
+        return;
+
     long portVal = 6667;
     m_port.ToLong(&portVal);
 
     m_core.connectToServer(
         std::string(m_server.ToUTF8()),
         static_cast<int>(portVal),
-        std::string(m_nick.ToUTF8()));
+        std::string(m_nick.ToUTF8()),
+        std::string(m_password.ToUTF8()));
 }
 
 ChannelPage* ServerConnectionPanel::GetOrCreateChannelPage(const wxString& channelName)
@@ -166,7 +231,7 @@ ChannelPage* ServerConnectionPanel::GetOrCreateChannelPage(const wxString& chann
         return it->second;
 
     // Create new channel page
-    auto* page = new ChannelPage(m_viewBook, channelName);
+    auto* page = new ChannelPage(m_viewBook, channelName, &m_settings, this);
     m_viewBook->AddPage(page, channelName, true);
 
     m_channels[channelName] = page;
@@ -304,7 +369,12 @@ void ServerConnectionPanel::HandleRawLine(const wxString& line)
             // We joined - switch to the new tab
             int idx = m_viewBook->FindPage(page);
             if (idx != wxNOT_FOUND)
+            {
                 m_viewBook->SetSelection(idx);
+                UpdateWindowTitle();
+                // Focus input when we join a channel
+                FocusInput();
+            }
         }
 
         page->AppendLog(nick + " has joined " + chan);
@@ -415,8 +485,9 @@ void ServerConnectionPanel::HandleRawLine(const wxString& line)
             m_nick = newNick;
             if (m_viewBook)
                 m_viewBook->SetPageText(0, BuildConsoleTabTitle());
-            
+
             LogToConsole("You are now known as " + newNick);
+            UpdateWindowTitle();
         }
         return;
     }
@@ -512,6 +583,9 @@ void ServerConnectionPanel::HandleRawLine(const wxString& line)
             wxFrame* frame = wxDynamicCast(wxGetTopLevelParent(this), wxFrame);
             if (frame)
                 frame->SetStatusText("Connected to " + m_server + " as " + m_nick);
+
+            // Reset reconnect attempts on successful connection
+            m_reconnectAttempts = 0;
         }
         return;
     }
@@ -525,6 +599,70 @@ void ServerConnectionPanel::HandleRawLine(const wxString& line)
 
     // ---------- Default: show in console ----------
     LogToConsole("<< " + line);
+}
+
+void ServerConnectionPanel::HandleDisconnect()
+{
+    // Don't process disconnect if we're being destroyed
+    if (m_isDestroying)
+        return;
+
+    LogToConsole("Disconnected from server.");
+
+    // Update status bar
+    wxFrame* frame = wxDynamicCast(wxGetTopLevelParent(this), wxFrame);
+    if (frame)
+        frame->SetStatusText("Disconnected");
+
+    // If auto-reconnect is enabled and this wasn't a user-initiated disconnect
+    if (m_settings.autoReconnect && !m_userDisconnected)
+    {
+        // Check if we've exceeded max attempts (0 = unlimited)
+        if (m_settings.maxReconnectAttempts > 0 &&
+            m_reconnectAttempts >= m_settings.maxReconnectAttempts)
+        {
+            LogToConsole(wxString::Format("Maximum reconnection attempts (%d) reached. Auto-reconnect stopped.",
+                                          m_settings.maxReconnectAttempts));
+            return;
+        }
+
+        // Calculate backoff delay: 5s, 10s, 20s, 40s, max 60s
+        int delay = std::min(5000 * (1 << m_reconnectAttempts), 60000);
+        m_reconnectAttempts++;
+
+        wxString attemptsInfo;
+        if (m_settings.maxReconnectAttempts > 0)
+        {
+            attemptsInfo = wxString::Format(" (attempt %d of %d)",
+                                           m_reconnectAttempts,
+                                           m_settings.maxReconnectAttempts);
+        }
+        else
+        {
+            attemptsInfo = wxString::Format(" (attempt %d)", m_reconnectAttempts);
+        }
+
+        LogToConsole(wxString::Format("Reconnecting in %d seconds...%s",
+                                      delay / 1000, attemptsInfo));
+
+        m_reconnectTimer.StartOnce(delay);
+    }
+}
+
+void ServerConnectionPanel::OnReconnectTimer(wxTimerEvent&)
+{
+    // Don't reconnect if we're being destroyed
+    if (m_isDestroying)
+        return;
+
+    // Don't reconnect if user manually disconnected while timer was running
+    if (m_userDisconnected)
+        return;
+
+    LogToConsole("Attempting to reconnect...");
+
+    // Try to reconnect
+    ConnectCore();
 }
 
 // ---------- UI HANDLERS ----------
@@ -547,6 +685,14 @@ void ServerConnectionPanel::OnSend(wxCommandEvent&)
     wxString text = m_input->GetValue();
     if (text.IsEmpty())
         return;
+
+    // Add to history (avoid duplicates of last entry)
+    if (m_inputHistory.empty() || m_inputHistory.back() != text)
+    {
+        m_inputHistory.push_back(text);
+    }
+    m_historyIndex = m_inputHistory.size();
+    m_currentInput.clear();
 
     wxString lower = text.Lower();
 
@@ -609,6 +755,9 @@ void ServerConnectionPanel::OnSend(wxCommandEvent&)
     }
 
     m_input->Clear();
+
+    // Ensure focus stays on input box
+    m_input->SetFocus();
 }
 
 void ServerConnectionPanel::OnTabClosed(wxAuiNotebookEvent& evt)
@@ -620,7 +769,7 @@ void ServerConnectionPanel::OnTabClosed(wxAuiNotebookEvent& evt)
         // Closing console = disconnect
         m_core.disconnect();
         m_channels.clear();
-        
+
         // Update status bar
         wxFrame* frame = wxDynamicCast(wxGetTopLevelParent(this), wxFrame);
         if (frame)
@@ -636,4 +785,150 @@ void ServerConnectionPanel::OnTabClosed(wxAuiNotebookEvent& evt)
 
     // Send PART to server
     m_core.sendRaw("PART " + std::string(chan.ToUTF8()));
+}
+
+void ServerConnectionPanel::OnInputKeyDown(wxKeyEvent& evt)
+{
+    int keyCode = evt.GetKeyCode();
+
+    if (keyCode == WXK_UP)
+    {
+        // Navigate backward in history
+        if (!m_inputHistory.empty())
+        {
+            // Save current input if at the end
+            if (m_historyIndex == m_inputHistory.size())
+            {
+                m_currentInput = m_input->GetValue();
+            }
+
+            if (m_historyIndex > 0)
+            {
+                m_historyIndex--;
+                m_input->SetValue(m_inputHistory[m_historyIndex]);
+                m_input->SetInsertionPointEnd();
+            }
+        }
+    }
+    else if (keyCode == WXK_DOWN)
+    {
+        // Navigate forward in history
+        if (!m_inputHistory.empty() && m_historyIndex < m_inputHistory.size())
+        {
+            m_historyIndex++;
+
+            if (m_historyIndex == m_inputHistory.size())
+            {
+                // Restore current input
+                m_input->SetValue(m_currentInput);
+                m_input->SetInsertionPointEnd();
+            }
+            else
+            {
+                m_input->SetValue(m_inputHistory[m_historyIndex]);
+                m_input->SetInsertionPointEnd();
+            }
+        }
+    }
+    else if (keyCode == WXK_TAB)
+    {
+        // Tab completion for nicknames
+        wxString text = m_input->GetValue();
+        long insertPos = m_input->GetInsertionPoint();
+
+        // Find the word to complete (before cursor)
+        long wordStart = insertPos;
+        while (wordStart > 0 && !wxIsspace(text[wordStart - 1]))
+            wordStart--;
+
+        wxString prefix = text.Mid(wordStart, insertPos - wordStart);
+        if (prefix.IsEmpty())
+            return;
+
+        // Get current channel's nick list
+        int sel = m_viewBook->GetSelection();
+        if (sel <= 0)
+            return;  // No completion in console
+
+        wxString chanName = m_viewBook->GetPageText(sel);
+        auto it = m_channels.find(chanName);
+        if (it == m_channels.end())
+            return;
+
+        wxListBox* nickList = it->second->GetNickList();
+        if (!nickList)
+            return;
+
+        // Find matching nick
+        wxString match;
+        for (unsigned int i = 0; i < nickList->GetCount(); i++)
+        {
+            wxString nick = nickList->GetString(i);
+            if (nick.Lower().StartsWith(prefix.Lower()))
+            {
+                match = nick;
+                break;
+            }
+        }
+
+        if (!match.IsEmpty())
+        {
+            // Replace prefix with match
+            wxString before = text.Mid(0, wordStart);
+            wxString after = text.Mid(insertPos);
+
+            // Add colon if at start of line
+            wxString completion = match;
+            if (wordStart == 0)
+                completion += ": ";
+            else
+                completion += " ";
+
+            m_input->SetValue(before + completion + after);
+            m_input->SetInsertionPoint(wordStart + completion.Length());
+        }
+    }
+    else
+    {
+        // Let other keys pass through
+        evt.Skip();
+    }
+}
+
+void ServerConnectionPanel::OnTabChanged(wxAuiNotebookEvent&)
+{
+    UpdateWindowTitle();
+
+    // Return focus to input box after tab change
+    if (m_input)
+        m_input->SetFocus();
+}
+
+void ServerConnectionPanel::UpdateWindowTitle()
+{
+    wxFrame* frame = wxDynamicCast(wxGetTopLevelParent(this), wxFrame);
+    if (!frame)
+        return;
+
+    int sel = m_viewBook->GetSelection();
+    if (sel == wxNOT_FOUND)
+    {
+        frame->SetTitle("AstraIRC");
+        return;
+    }
+
+    wxString title;
+    if (sel == 0)
+    {
+        // Console tab
+        title = "AstraIRC - " + m_server + " (" + m_nick + ")";
+    }
+    else
+    {
+        // Channel tab
+        wxString channelName = m_viewBook->GetPageText(sel);
+        title = "AstraIRC - " + channelName + " @ " + m_server;
+    }
+
+    frame->SetTitle(title);
 }

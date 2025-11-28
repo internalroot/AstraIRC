@@ -26,6 +26,7 @@ public:
     using LogCallback = std::function<void(const std::string&)>;
     using MessageCallback = std::function<void(const std::string& source, const std::string& text)>;
     using RawLineCallback = std::function<void(const std::string&)>;
+    using DisconnectCallback = std::function<void()>;
 
     IRCCore();
     ~IRCCore();
@@ -40,9 +41,10 @@ public:
     void setLogCallback(LogCallback cb);
     void setMessageCallback(MessageCallback cb);
     void setRawLineCallback(RawLineCallback cb);
+    void setDisconnectCallback(DisconnectCallback cb);
 
     // Connection management
-    void connectToServer(const std::string& host, int port, const std::string& nick);
+    void connectToServer(const std::string& host, int port, const std::string& nick, const std::string& password = "");
     void disconnect();
     bool isConnected() const;
 
@@ -73,12 +75,14 @@ private:
     int serverPort{ 6667 };
     SocketType sock{ InvalidSocket };
     std::string currentNick;
+    std::string serverPassword;
     mutable std::mutex nickMutex;
 
     // Callbacks
     LogCallback onLog;
     MessageCallback onMessage;
     RawLineCallback onRawLine;
+    DisconnectCallback onDisconnect;
 
     // Outgoing queue
     std::mutex sendMutex;

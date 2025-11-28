@@ -2,6 +2,7 @@
 
 #include <wx/frame.h>
 #include <wx/string.h>
+#include "AppSettings.h"
 
 class ServerConnectionPanel;
 
@@ -18,6 +19,7 @@ private:
     void OnMenuServerList(wxCommandEvent& evt);
     void OnMenuPreferences(wxCommandEvent& evt);
     void OnMenuAbout(wxCommandEvent& evt);
+    void OnActivate(wxActivateEvent& evt);
 
 private:
     ServerConnectionPanel* m_serverPanel = nullptr;
@@ -25,4 +27,7 @@ private:
     wxString m_defaultServer;
     wxString m_defaultPort;
     wxString m_defaultNick;
+    wxString m_defaultPassword;
+
+    AppSettings m_settings;
 };

@@ -66,6 +66,11 @@ void IRCCore::setRawLineCallback(RawLineCallback cb)
     onRawLine = std::move(cb);
 }
 
+void IRCCore::setDisconnectCallback(DisconnectCallback cb)
+{
+    onDisconnect = std::move(cb);
+}
+
 void IRCCore::log(const std::string& msg)
 {
     if (onLog)
@@ -95,14 +100,24 @@ void IRCCore::closeSocket()
     }
 }
 
-void IRCCore::connectToServer(const std::string& host, int port, const std::string& nick)
+void IRCCore::connectToServer(const std::string& host, int port, const std::string& nick, const std::string& password)
 {
     // If already running, disconnect first
-    disconnect();
+    if (running.load())
+    {
+        disconnect();
+    }
+
+    // Ensure previous thread is fully cleaned up
+    if (networkThread.joinable())
+    {
+        networkThread.join();
+    }
 
     serverHost = host;
     serverPort = port;
-    
+    serverPassword = password;
+
     {
         std::lock_guard<std::mutex> lock(nickMutex);
         currentNick = nick;
@@ -276,6 +291,10 @@ void IRCCore::networkThreadFunc()
     {
         log("getaddrinfo failed: " + std::to_string(res));
         running = false;
+
+        // Notify GUI of connection failure
+        if (onDisconnect)
+            onDisconnect();
         return;
     }
 
@@ -303,6 +322,10 @@ void IRCCore::networkThreadFunc()
     {
         log("Unable to connect to server.");
         running = false;
+
+        // Notify GUI of connection failure
+        if (onDisconnect)
+            onDisconnect();
         return;
     }
 
@@ -314,6 +337,12 @@ void IRCCore::networkThreadFunc()
         std::lock_guard<std::mutex> lock(nickMutex);
         if (!currentNick.empty())
         {
+            // Send PASS command first if password is provided
+            if (!serverPassword.empty())
+            {
+                sendRaw("PASS " + serverPassword);
+            }
+
             sendRaw("NICK " + currentNick);
             sendRaw("USER " + currentNick + " 0 * :AstraIRC user");
         }
@@ -407,6 +436,10 @@ void IRCCore::networkThreadFunc()
     running = false;
 
     log("Network thread stopped.");
+
+    // Notify GUI of disconnection
+    if (onDisconnect)
+        onDisconnect();
 }
 
 void IRCCore::handleServerLine(const std::string& line)
