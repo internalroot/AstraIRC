@@ -16,6 +16,8 @@ A modern, cross-platform IRC client built with wxWidgets and C++17.
 
 ## Building
 
+> **💡 Using Visual Studio?** See [SETUP.md](SETUP.md) for detailed Visual Studio setup instructions and troubleshooting.
+
 ### Prerequisites
 
 - CMake 3.20 or later
