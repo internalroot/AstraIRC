@@ -56,23 +56,23 @@ brew install cmake ninja wxwidgets
 
 ### Method 1: Using CMakePresets.json (Recommended)
 
-1. Set the `VCPKG_ROOT` environment variable (if not already set):
-   - Open System Properties → Environment Variables
-   - Add new System variable: `VCPKG_ROOT` = `C:\vcpkg` (or your vcpkg path)
-   - **Restart Visual Studio** for the change to take effect
+1. Open Visual Studio
 
-2. Open Visual Studio
+2. File → Open → CMake → Select `CMakeLists.txt` from the project root
 
-3. File → Open → CMake → Select `CMakeLists.txt` from the project root
+3. Visual Studio will automatically:
+   - Detect the CMake presets
+   - Use its built-in vcpkg integration
+   - Install wxWidgets and other dependencies from `vcpkg.json`
 
-4. Visual Studio will automatically detect the CMake presets
-
-5. Select your desired preset from the dropdown:
+4. Select your desired preset from the dropdown:
    - `x64-debug` for 64-bit debug builds
    - `x64-release` for 64-bit release builds
    - `x86-debug` for 32-bit debug builds (if needed)
 
-6. Build → Build All (or press F7)
+5. Build → Build All (or press F7)
+
+**Note:** Visual Studio 2022 has built-in vcpkg integration. You no longer need to set `VCPKG_ROOT` or manually install dependencies!
 
 ### Method 2: Manual Configuration
 
@@ -152,6 +152,22 @@ This indicates Visual Studio's CMake environment differs from your PowerShell en
 - Ensure `VCPKG_ROOT` is set as a **System** environment variable (not just User)
 - Restart Visual Studio after setting environment variables
 - Check that Visual Studio is using the correct CMake preset
+
+### vcpkg CMake Error in Visual Studio (but builds manually)
+
+If you see a vcpkg CMake error like "vcpkg install failed" in Visual Studio but the build works in PowerShell, this is caused by Visual Studio 2022's built-in vcpkg integration:
+
+**Solution:**
+This project has been configured to work seamlessly with Visual Studio 2022's built-in vcpkg. The CMakePresets.json no longer requires the `VCPKG_ROOT` environment variable. Simply:
+1. Delete the CMake cache in Visual Studio: CMake → Delete Cache and Reconfigure
+2. Let Visual Studio use its integrated vcpkg (located at `C:\Program Files\Microsoft Visual Studio\...\VC\vcpkg\`)
+3. The project's `vcpkg.json` and `vcpkg-configuration.json` will be automatically detected
+
+**For command-line builds without Visual Studio:**
+You can still use your own vcpkg installation by setting CMAKE_TOOLCHAIN_FILE:
+```powershell
+cmake --preset x64-debug -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
+```
 
 ### Different versions of wxWidgets
 
