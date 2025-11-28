@@ -8,7 +8,7 @@ Cross-platform IRC client built with C++ and wxWidgets.
 
 | Project | Language | Current Version | Description |
 |---------|----------|-----------------|-------------|
-| **AstraIRC** | C++ / wxWidgets | v1.0.0 | Cross-platform IRC client |
+| **AstraIRC** | C++ / wxWidgets | v1.1.0 | Cross-platform IRC client |
 
 ---
 
