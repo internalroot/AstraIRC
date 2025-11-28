@@ -11,6 +11,7 @@ Makefile
 
 # Visual Studio / MSBuild
 .vs/
+out/
 *.user
 *.vcxproj.user
 *.VC.db
