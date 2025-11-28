@@ -23,6 +23,16 @@ Cross-platform IRC client built with C++ and wxWidgets.
 - [x] Threaded networking with GUI marshalling
 - [x] Commands: /join, /part, /nick, /msg, /me, /quit, /raw
 
+### AstraIRC (v1.1.0) — In Progress 🚧
+
+- [x] Auto-reconnect with toggle — Reconnect on disconnect; preference to enable/disable
+- [x] Server password support — Send PASS before NICK/USER
+- [x] Input history — Up/down arrows recall previous commands
+- [x] Clickable URLs — Detect links, open in browser on click
+- [x] Configurable timestamps — Toggle on/off; choose 12-hour or 24-hour format
+- [x] Window title updates — Show activity/current channel in title
+- [ ] Tab completion — Complete nicks and commands with Tab key
+
 ---
 
 ## Version Roadmap
@@ -31,22 +41,23 @@ Cross-platform IRC client built with C++ and wxWidgets.
 
 ### Phase 1: Core Stability
 
-#### AstraIRC v1.1.0 — Stability & Usability
+#### AstraIRC v1.1.0 — Stability & Usability ✅
 
-- [ ] **Auto-reconnect with toggle** — Reconnect on disconnect; preference to enable/disable
-- [ ] **Server password support** — Send PASS before NICK/USER
-- [ ] **Multiple server connections** — Tabs or tree view for multiple servers
-- [ ] **Input history** — Up/down arrows recall previous commands
+- [x] **Auto-reconnect with toggle** — Reconnect on disconnect; preference to enable/disable
+- [x] **Server password support** — Send PASS before NICK/USER
+- [x] **Input history** — Up/down arrows recall previous commands
+- [x] **Clickable URLs** — Detect links, open in browser on click
+- [x] **Configurable timestamps** — Toggle on/off; choose 12-hour or 24-hour format
+- [x] **Window title updates** — Show activity/current channel in title
 - [ ] **Tab completion** — Complete nicks and commands with Tab key
-- [ ] **Clickable URLs** — Detect links, open in browser on click
-- [ ] **Configurable timestamps** — Toggle on/off; choose 12-hour or 24-hour format
-- [ ] **Window title updates** — Show activity/current channel in title
 
 ---
 
 ### Phase 2: User Profiles & Accounts
 
 #### AstraIRC v1.2.0 — User Profiles
+
+- [ ] **Multiple server connections** — Tabs or tree view for multiple servers
 
 - [ ] **User Profile Window** — Double-click nick opens profile dialog:
   - Nickname, username, hostname
@@ -147,11 +158,11 @@ Cross-platform IRC client built with C++ and wxWidgets.
 
 - [ ] **Settings file** — JSON format, auto-save
 
-- [ ] **Preferences dialog**:
-  - **General**: Timestamps (on/off, 12h/24h), auto-reconnect toggle
-  - **Notifications**: Sounds, desktop notifications, highlight words
-  - **Appearance**: Fonts, colors
-  - **Logging**: Enable/disable, file location
+- [ ] **Preferences dialog** — Partially implemented:
+  - [x] **General**: Timestamps (on/off, 12h/24h), auto-reconnect toggle
+  - [ ] **Notifications**: Sounds, desktop notifications, highlight words
+  - [ ] **Appearance**: Fonts, colors
+  - [ ] **Logging**: Enable/disable, file location
 
 - [ ] **Server list manager**:
   - Save favorite servers
