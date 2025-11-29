@@ -701,23 +701,30 @@ void IRCCore::handleServerLine(const std::string& line)
                     if (parts.size() >= 2)
                     {
                         std::string targetNick = parts[1];
-                        std::lock_guard<std::mutex> lock(whoisMutex);
-                        auto it = pendingWhois.find(targetNick);
-                        if (it != pendingWhois.end())
+
+                        // Copy the UserInfo and invoke callback outside the lock
+                        UserInfo info;
+                        bool shouldNotify = false;
+
                         {
-                            it->second.whoisComplete = true;
-                            it->second.whoisInProgress = false;
-
-                            // Notify via callback
-                            if (onWhois)
+                            std::lock_guard<std::mutex> lock(whoisMutex);
+                            auto it = pendingWhois.find(targetNick);
+                            if (it != pendingWhois.end())
                             {
-                                UserInfo info = it->second;
-                                lock.~lock_guard();  // Release lock before callback
-                                onWhois(info);
-                            }
+                                it->second.whoisComplete = true;
+                                it->second.whoisInProgress = false;
+                                info = it->second;  // Copy before erasing
+                                shouldNotify = true;
 
-                            // Clean up
-                            pendingWhois.erase(it);
+                                // Clean up
+                                pendingWhois.erase(it);
+                            }
+                        }  // Lock released here automatically
+
+                        // Notify via callback outside the lock to avoid deadlock
+                        if (shouldNotify && onWhois)
+                        {
+                            onWhois(info);
                         }
                     }
                 }
