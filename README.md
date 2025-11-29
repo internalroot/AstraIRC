@@ -14,6 +14,42 @@ A modern, cross-platform IRC client built with wxWidgets and C++17.
 - Support for standard IRC commands (`/join`, `/part`, `/nick`, `/msg`, `/me`, etc.)
 - Cross-platform (Windows, macOS, Linux)
 
+## Installation (Prebuilt Binaries)
+
+Download the latest release from the [Releases](https://github.com/internalroot/AstraIRC/releases) page.
+
+### Windows
+
+1. Download `AstraIRC-Windows.tar.gz`
+2. Extract the archive
+3. Run `AstraIRC.exe`
+
+### macOS
+
+1. Download `AstraIRC-macOS.tar.gz`
+2. Extract the archive
+3. Run `AstraIRC.app`
+
+### Linux
+
+**Prerequisites:** wxWidgets 3.2 runtime libraries are required.
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install libwxgtk3.2-1
+
+# Fedora
+sudo dnf install wxGTK3
+
+# Arch Linux
+sudo pacman -S wxwidgets-gtk3
+```
+
+**Installation:**
+1. Download `AstraIRC-Linux.tar.gz`
+2. Extract the archive: `tar -xzf AstraIRC-Linux.tar.gz`
+3. Run the application: `./AstraIRC-Linux/AstraIRC`
+
 ## Building
 
 > **💡 Using Visual Studio?** See [SETUP.md](SETUP.md) for detailed Visual Studio setup instructions and troubleshooting.
