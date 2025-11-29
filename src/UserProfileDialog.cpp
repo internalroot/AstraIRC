@@ -1,6 +1,7 @@
 #include "UserProfileDialog.h"
 #include "ServerConnectionPanel.h"
 #include <wx/statline.h>
+#include <wx/msgdlg.h>
 #include <sstream>
 #include <ctime>
 #include <iomanip>
