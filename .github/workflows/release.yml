@@ -1,0 +1,188 @@
+name: Build Pre-Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.2.0-beta.1)'
+        required: true
+        default: 'v1.2.0-beta.1'
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            artifact_name: AstraIRC-Windows
+            artifact_path: build/Release/AstraIRC.exe
+          - os: macos-latest
+            artifact_name: AstraIRC-macOS
+            artifact_path: build/AstraIRC.app
+          - os: ubuntu-latest
+            artifact_name: AstraIRC-Linux
+            artifact_path: build/AstraIRC
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up CMake
+        uses: lukka/get-cmake@latest
+
+      # Windows-specific setup
+      - name: Setup vcpkg (Windows)
+        if: runner.os == 'Windows'
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: 'a42af01b72c28a8e1d7b48107b33e4f286a55ef6'
+
+      - name: Install wxWidgets (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install wxwidgets[aui]:x64-windows
+        shell: bash
+
+      # macOS-specific setup
+      - name: Install wxWidgets (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install wxwidgets
+
+      # Linux-specific setup
+      - name: Install wxWidgets (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwxgtk3.2-dev libgtk-3-dev
+
+      # Build steps
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+        shell: bash
+
+      - name: Configure CMake (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: |
+          cmake --build build --config Release
+
+      # Package for macOS
+      - name: Package macOS App
+        if: runner.os == 'macOS'
+        run: |
+          cd build
+          # Create a distributable .app bundle
+          mkdir -p AstraIRC-macOS
+          cp -r AstraIRC.app AstraIRC-macOS/ || cp AstraIRC AstraIRC-macOS/
+          tar -czf AstraIRC-macOS.tar.gz AstraIRC-macOS
+
+      # Package for Linux
+      - name: Package Linux Binary
+        if: runner.os == 'Linux'
+        run: |
+          cd build
+          mkdir -p AstraIRC-Linux
+          cp AstraIRC AstraIRC-Linux/
+          tar -czf AstraIRC-Linux.tar.gz AstraIRC-Linux
+
+      # Package for Windows
+      - name: Package Windows Binary
+        if: runner.os == 'Windows'
+        run: |
+          cd build/Release
+          mkdir AstraIRC-Windows
+          cp AstraIRC.exe AstraIRC-Windows/
+          tar -czf AstraIRC-Windows.tar.gz AstraIRC-Windows
+        shell: bash
+
+      # Upload artifacts
+      - name: Upload Artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: build/Release/AstraIRC-Windows.tar.gz
+
+      - name: Upload Artifact (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: build/AstraIRC-macOS.tar.gz
+
+      - name: Upload Artifact (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: build/AstraIRC-Linux.tar.gz
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure
+        run: ls -R artifacts
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: AstraIRC ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: true
+          body: |
+            ## AstraIRC ${{ steps.version.outputs.version }}
+
+            Pre-release build for testing purposes.
+
+            ### Downloads
+            - **Windows**: Download `AstraIRC-Windows.tar.gz`, extract and run `AstraIRC.exe`
+            - **macOS**: Download `AstraIRC-macOS.tar.gz`, extract and run `AstraIRC.app`
+            - **Linux**: Download `AstraIRC-Linux.tar.gz`, extract and run `AstraIRC`
+
+            ### Installation
+            1. Download the appropriate file for your platform
+            2. Extract the archive
+            3. Run the executable
+
+            Please report any issues on the GitHub issue tracker.
+          files: |
+            artifacts/AstraIRC-Windows/AstraIRC-Windows.tar.gz
+            artifacts/AstraIRC-macOS/AstraIRC-macOS.tar.gz
+            artifacts/AstraIRC-Linux/AstraIRC-Linux.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
