@@ -20,12 +20,12 @@ endif()
 
 # Find wxWidgets - works with both vcpkg CONFIG mode and system FindwxWidgets module
 # Try CONFIG mode first (vcpkg provides this)
-find_package(wxWidgets CONFIG QUIET)
+find_package(wxWidgets CONFIG QUIET COMPONENTS core base aui)
 
 if(NOT wxWidgets_FOUND)
-    # Fallback to module mode for system-installed wxWidgets (common on Linux)
+    # Fallback to module mode for system-installed wxWidgets (common on Linux/macOS)
     message(STATUS "wxWidgets not found via CONFIG mode, trying MODULE mode...")
-    find_package(wxWidgets REQUIRED COMPONENTS core base aui)
+    find_package(wxWidgets COMPONENTS core base aui)
 
     if(wxWidgets_FOUND)
         include(${wxWidgets_USE_FILE})
@@ -65,8 +65,11 @@ target_include_directories(AstraIRC PRIVATE ${CMAKE_SOURCE_DIR}/src)
 # Link wxWidgets (different syntax depending on how it was found)
 if(TARGET wx::core)
     # vcpkg / CONFIG mode
-    # Get all wx:: targets and link them all
-    target_link_libraries(AstraIRC PRIVATE wx::wx)
+    target_link_libraries(AstraIRC PRIVATE
+        wx::core
+        wx::base
+        wx::aui
+    )
 else()
     # Module mode (system wxWidgets) - wxWidgets_LIBRARIES includes all components
     target_link_libraries(AstraIRC PRIVATE ${wxWidgets_LIBRARIES})
