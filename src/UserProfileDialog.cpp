@@ -119,9 +119,17 @@ void UserProfileDialog::CreateControls(const UserInfo& userInfo)
             channelList += userInfo.channels[i];
         }
 
-        m_channelsLabel = new wxStaticText(this, wxID_ANY, channelList);
-        m_channelsLabel->Wrap(450);
-        channelsBox->Add(m_channelsLabel, 1, wxEXPAND | wxALL, 5);
+        // Use a read-only text control with scrolling for long channel lists
+        wxTextCtrl* channelsText = new wxTextCtrl(this, wxID_ANY, channelList,
+            wxDefaultPosition, wxSize(-1, 60),
+            wxTE_READONLY | wxTE_MULTILINE | wxTE_WORDWRAP);
+
+        // Use a smaller font for the channel list
+        wxFont font = channelsText->GetFont();
+        font.SetPointSize(font.GetPointSize() - 1);
+        channelsText->SetFont(font);
+
+        channelsBox->Add(channelsText, 1, wxEXPAND | wxALL, 5);
         mainSizer->Add(channelsBox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 10);
     }
 

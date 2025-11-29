@@ -297,8 +297,7 @@ void MainFrame::OnMenuConnect(wxCommandEvent&)
     auto* serverPanel = new ServerConnectionPanel(m_serverNotebook, server, port, nick, m_settings, password);
     wxString tabTitle = GenerateServerTabTitle(server, nick);
 
-    int pageIdx = m_serverNotebook->AddPage(serverPanel, tabTitle, true);
-    m_serverPanels[pageIdx] = serverPanel;
+    m_serverNotebook->AddPage(serverPanel, tabTitle, true);
 
     SetStatusText("Connecting to " + server + ":" + port + "...");
 }
@@ -357,10 +356,14 @@ void MainFrame::OnMenuPreferences(wxCommandEvent&)
         m_settings = dlg.GetSettings();
 
         // Apply settings to all server panels
-        for (auto& [idx, panel] : m_serverPanels)
+        if (m_serverNotebook)
         {
-            if (panel)
-                panel->ApplySettings(m_settings);
+            for (size_t i = 0; i < m_serverNotebook->GetPageCount(); ++i)
+            {
+                ServerConnectionPanel* panel = dynamic_cast<ServerConnectionPanel*>(m_serverNotebook->GetPage(i));
+                if (panel)
+                    panel->ApplySettings(m_settings);
+            }
         }
     }
 }
@@ -401,11 +404,8 @@ ServerConnectionPanel* MainFrame::GetCurrentServerPanel()
     if (selection == wxNOT_FOUND)
         return nullptr;
 
-    auto it = m_serverPanels.find(selection);
-    if (it != m_serverPanels.end())
-        return it->second;
-
-    return nullptr;
+    wxWindow* page = m_serverNotebook->GetPage(selection);
+    return dynamic_cast<ServerConnectionPanel*>(page);
 }
 
 wxString MainFrame::GenerateServerTabTitle(const wxString& server, const wxString& nick)
@@ -415,20 +415,19 @@ wxString MainFrame::GenerateServerTabTitle(const wxString& server, const wxStrin
 
 void MainFrame::OnServerTabClosed(wxAuiNotebookEvent& evt)
 {
-    int page = evt.GetSelection();
+    int pageIdx = evt.GetSelection();
 
-    // Remove from map
-    auto it = m_serverPanels.find(page);
-    if (it != m_serverPanels.end())
+    // Get the panel before it's closed
+    wxWindow* page = m_serverNotebook->GetPage(pageIdx);
+    ServerConnectionPanel* panel = dynamic_cast<ServerConnectionPanel*>(page);
+
+    if (panel)
     {
         // Disconnect before closing
-        if (it->second)
-            it->second->DisconnectCore();
-
-        m_serverPanels.erase(it);
+        panel->DisconnectCore();
     }
 
-    // Update status
-    if (m_serverPanels.empty())
+    // Update status if no more connections
+    if (m_serverNotebook->GetPageCount() <= 1)  // Will be 0 after this tab closes
         SetStatusText("Not connected");
 }
