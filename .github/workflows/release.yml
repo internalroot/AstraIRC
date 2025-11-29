@@ -44,12 +44,6 @@ jobs:
         with:
           vcpkgGitCommitId: 'a42af01b72c28a8e1d7b48107b33e4f286a55ef6'
 
-      - name: Install wxWidgets (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          vcpkg install wxwidgets[aui]:x64-windows
-        shell: bash
-
       # macOS-specific setup
       - name: Install wxWidgets (macOS)
         if: runner.os == 'macOS'
@@ -67,7 +61,7 @@ jobs:
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="${RUNVCPKG_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
         shell: bash
 
       - name: Configure CMake (Unix)
