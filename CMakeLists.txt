@@ -71,7 +71,7 @@ if(TARGET wx::core)
         wx::aui
     )
 else()
-    # Module mode (system wxWidgets)
+    # Module mode (system wxWidgets) - wxWidgets_LIBRARIES includes all components
     target_link_libraries(AstraIRC PRIVATE ${wxWidgets_LIBRARIES})
 endif()
 
