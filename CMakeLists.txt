@@ -20,7 +20,7 @@ endif()
 
 # Find wxWidgets - works with both vcpkg CONFIG mode and system FindwxWidgets module
 # Try CONFIG mode first (vcpkg provides this)
-find_package(wxWidgets CONFIG QUIET COMPONENTS core base)
+find_package(wxWidgets CONFIG QUIET COMPONENTS core base aui)
 
 if(NOT wxWidgets_FOUND)
     # Fallback to module mode for system-installed wxWidgets (common on Linux/macOS)
@@ -68,6 +68,7 @@ if(TARGET wx::core)
     target_link_libraries(AstraIRC PRIVATE
         wx::core
         wx::base
+        wx::aui
     )
 else()
     # Module mode (system wxWidgets)
