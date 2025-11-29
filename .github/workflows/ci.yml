@@ -94,6 +94,8 @@ jobs:
           cd build/Release
           mkdir AstraIRC-Windows
           cp AstraIRC.exe AstraIRC-Windows/
+          # Copy vcpkg DLLs (wxWidgets and dependencies)
+          cp ${RUNVCPKG_VCPKG_ROOT}/installed/x64-windows/bin/*.dll AstraIRC-Windows/ || true
           tar -czf AstraIRC-Windows.tar.gz AstraIRC-Windows
         shell: bash
 
