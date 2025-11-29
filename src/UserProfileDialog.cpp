@@ -11,12 +11,15 @@ UserProfileDialog::UserProfileDialog(wxWindow* parent,
                                      ServerConnectionPanel* serverPanel)
     : wxDialog(parent, wxID_ANY, wxString("User Profile: ") + userInfo.nick,
                wxDefaultPosition, wxSize(500, 600),
-               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
+               wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxFRAME_FLOAT_ON_PARENT)
     , m_userInfo(userInfo)
     , m_serverPanel(serverPanel)
 {
     CreateControls(userInfo);
     Centre();
+
+    // Bind close event to properly destroy the dialog
+    Bind(wxEVT_CLOSE_WINDOW, &UserProfileDialog::OnCloseWindow, this);
 }
 
 void UserProfileDialog::CreateControls(const UserInfo& userInfo)
@@ -241,36 +244,38 @@ void UserProfileDialog::UpdateInfo(const UserInfo& userInfo)
     Layout();
 }
 
-void UserProfileDialog::OnSendPM(wxCommandEvent& evt)
+void UserProfileDialog::OnSendPM(wxCommandEvent&)
 {
     // TODO: Implement when PM tab support is added
     wxMessageBox("Private message support will be implemented in a future update.",
                  "Not Yet Implemented", wxOK | wxICON_INFORMATION, this);
 }
 
-void UserProfileDialog::OnRefresh(wxCommandEvent& evt)
+void UserProfileDialog::OnRefresh(wxCommandEvent&)
 {
     // Request a fresh WHOIS
     if (m_serverPanel)
     {
-        // The server panel will need to expose a method to request WHOIS
-        // For now, just show a message
-        wxMessageBox("Requesting fresh WHOIS for " + m_userInfo.nick,
-                     "Refresh", wxOK | wxICON_INFORMATION, this);
-        // TODO: Call m_serverPanel->RequestWhois(m_userInfo.nick);
+        m_serverPanel->RequestWhois(wxString::FromUTF8(m_userInfo.nick.c_str()));
     }
 }
 
-void UserProfileDialog::OnIgnore(wxCommandEvent& evt)
+void UserProfileDialog::OnIgnore(wxCommandEvent&)
 {
     // TODO: Implement ignore functionality
     wxMessageBox("Ignore functionality will be implemented in a future update.",
                  "Not Yet Implemented", wxOK | wxICON_INFORMATION, this);
 }
 
-void UserProfileDialog::OnClose(wxCommandEvent& evt)
+void UserProfileDialog::OnClose(wxCommandEvent&)
 {
     Close();
+}
+
+void UserProfileDialog::OnCloseWindow(wxCloseEvent&)
+{
+    // Properly destroy the dialog when closed
+    Destroy();
 }
 
 std::string UserProfileDialog::FormatIdleTime(int seconds) const

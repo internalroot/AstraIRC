@@ -25,6 +25,7 @@ private:
     void OnRefresh(wxCommandEvent& evt);
     void OnIgnore(wxCommandEvent& evt);
     void OnClose(wxCommandEvent& evt);
+    void OnCloseWindow(wxCloseEvent& evt);
 
     std::string FormatIdleTime(int seconds) const;
     std::string FormatSignonTime(long timestamp) const;
