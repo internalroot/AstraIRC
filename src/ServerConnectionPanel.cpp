@@ -983,8 +983,8 @@ void ServerConnectionPanel::HandleWhois(const UserInfo& userInfo)
     if (m_isDestroying)
         return;
 
-    // Create and show the profile dialog as modal
-    // Dialog is on the stack and automatically destroyed when closed
-    UserProfileDialog dlg(this, userInfo, this);
-    dlg.ShowModal();
+    // Create a non-modal dialog that will auto-destroy when closed
+    // Using 'new' is intentional here - dialog will call Destroy() on close
+    UserProfileDialog* dlg = new UserProfileDialog(this, userInfo, this);
+    dlg->Show();  // Non-modal - doesn't block the UI
 }
