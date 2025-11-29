@@ -167,9 +167,25 @@ jobs:
             - **Linux**: Download `AstraIRC-Linux.tar.gz`, extract and run `AstraIRC`
 
             ### Installation
-            1. Download the appropriate file for your platform
+
+            #### Windows
+            1. Download `AstraIRC-Windows.tar.gz`
             2. Extract the archive
-            3. Run the executable
+            3. Run `AstraIRC.exe`
+
+            #### macOS
+            1. Download `AstraIRC-macOS.tar.gz`
+            2. Extract the archive
+            3. Run `AstraIRC.app`
+
+            #### Linux
+            1. Install wxWidgets 3.2 dependencies:
+               - **Debian/Ubuntu**: `sudo apt-get install libwxgtk3.2-1`
+               - **Fedora**: `sudo dnf install wxGTK3`
+               - **Arch**: `sudo pacman -S wxwidgets-gtk3`
+            2. Download `AstraIRC-Linux.tar.gz`
+            3. Extract the archive
+            4. Run `./AstraIRC`
 
             Please report any issues on the GitHub issue tracker.
           files: |
