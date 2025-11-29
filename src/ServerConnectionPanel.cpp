@@ -983,7 +983,8 @@ void ServerConnectionPanel::HandleWhois(const UserInfo& userInfo)
     if (m_isDestroying)
         return;
 
-    // Create and show the profile dialog
-    UserProfileDialog* dlg = new UserProfileDialog(this, userInfo, this);
-    dlg->Show();
+    // Create and show the profile dialog as modal
+    // Dialog is on the stack and automatically destroyed when closed
+    UserProfileDialog dlg(this, userInfo, this);
+    dlg.ShowModal();
 }
