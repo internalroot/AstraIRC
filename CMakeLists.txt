@@ -20,12 +20,12 @@ endif()
 
 # Find wxWidgets - works with both vcpkg CONFIG mode and system FindwxWidgets module
 # Try CONFIG mode first (vcpkg provides this)
-find_package(wxWidgets CONFIG QUIET COMPONENTS core base aui)
+find_package(wxWidgets CONFIG QUIET COMPONENTS core base)
 
 if(NOT wxWidgets_FOUND)
     # Fallback to module mode for system-installed wxWidgets (common on Linux)
     message(STATUS "wxWidgets not found via CONFIG mode, trying MODULE mode...")
-    find_package(wxWidgets COMPONENTS core base aui)
+    find_package(wxWidgets COMPONENTS core base)
 
     if(wxWidgets_FOUND)
         include(${wxWidgets_USE_FILE})
@@ -33,7 +33,7 @@ if(NOT wxWidgets_FOUND)
         message(FATAL_ERROR
             "wxWidgets not found!\n"
             "Please install wxWidgets using one of these methods:\n"
-            "  - Windows (vcpkg): Set VCPKG_ROOT environment variable and run 'vcpkg install wxwidgets[aui]:x64-windows'\n"
+            "  - Windows (vcpkg): Set VCPKG_ROOT environment variable and run 'vcpkg install wxwidgets:x64-windows'\n"
             "  - Linux: Install via package manager (e.g., 'sudo apt install libwxgtk3.0-gtk3-dev')\n"
             "  - macOS: Install via Homebrew ('brew install wxwidgets')\n"
             "Or ensure CMAKE_TOOLCHAIN_FILE points to vcpkg.cmake if using vcpkg."
@@ -68,7 +68,6 @@ if(TARGET wx::core)
     target_link_libraries(AstraIRC PRIVATE
         wx::core
         wx::base
-        wx::aui
     )
 else()
     # Module mode (system wxWidgets)
