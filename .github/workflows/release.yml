@@ -22,7 +22,7 @@ jobs:
         include:
           - os: windows-latest
             artifact_name: AstraIRC-Windows
-            artifact_path: build/Release/AstraIRC.exe
+            artifact_path: out/build/x64-release/Release/AstraIRC.exe
           - os: macos-latest
             artifact_name: AstraIRC-macOS
             artifact_path: build/AstraIRC.app
@@ -58,8 +58,10 @@ jobs:
       # Build steps
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
+        env:
+          VCPKG_ROOT: ${{ env.RUNVCPKG_VCPKG_ROOT }}
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="${RUNVCPKG_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          cmake --preset x64-release
         shell: bash
 
       - name: Configure CMake (Unix)
@@ -67,7 +69,15 @@ jobs:
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        env:
+          VCPKG_ROOT: ${{ env.RUNVCPKG_VCPKG_ROOT }}
+        run: |
+          cmake --build --preset x64-release
+
+      - name: Build (Unix)
+        if: runner.os != 'Windows'
         run: |
           cmake --build build --config Release
 
@@ -94,7 +104,7 @@ jobs:
       - name: Package Windows Binary
         if: runner.os == 'Windows'
         run: |
-          cd build/Release
+          cd out/build/x64-release/Release
           mkdir AstraIRC-Windows
           cp AstraIRC.exe AstraIRC-Windows/
           tar -czf AstraIRC-Windows.tar.gz AstraIRC-Windows
@@ -106,7 +116,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: build/Release/AstraIRC-Windows.tar.gz
+          path: out/build/x64-release/Release/AstraIRC-Windows.tar.gz
 
       - name: Upload Artifact (macOS)
         if: runner.os == 'macOS'
