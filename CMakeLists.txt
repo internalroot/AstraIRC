@@ -20,8 +20,8 @@ endif()
 
 # Find wxWidgets using MODULE mode (works with both vcpkg and system installations)
 # vcpkg's wxWidgets port uses FindwxWidgets.cmake (MODULE mode), not CONFIG mode
-# Request the components we need: core (GUI), base (non-GUI), adv (advanced), stc (styled text)
-find_package(wxWidgets REQUIRED COMPONENTS core base adv stc)
+# Request the components we need: core (GUI), base (non-GUI), adv (advanced), aui (advanced UI), stc (styled text)
+find_package(wxWidgets REQUIRED COMPONENTS core base adv aui stc)
 
 # Include wxWidgets configuration
 include(${wxWidgets_USE_FILE})
