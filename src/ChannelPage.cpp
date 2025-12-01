@@ -33,9 +33,8 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
     defaultStyle.SetFont(font);
     m_log->SetBasicStyle(defaultStyle);
 
-    // Disable the caret more reliably
-    m_log->SetCaretAtLineStart(false);
-    m_log->ShowCaret(false);
+    // Hide caret by preventing focus
+    m_log->SetWindowStyleFlag(m_log->GetWindowStyleFlag() | wxTE_PROCESS_TAB);
 
     auto* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(m_log, 1, wxEXPAND | wxALL, 2);
