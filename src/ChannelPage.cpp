@@ -3,7 +3,7 @@
 #include "ServerConnectionPanel.h"
 
 #include <wx/datetime.h>
-#include <wx/textctrl.h>
+#include <wx/stc/stc.h>
 #include <wx/utils.h>
 
 // -------- LogPanel --------
@@ -13,16 +13,29 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
       m_settings(settings),
       m_serverPanel(serverPanel)
 {
-    m_log = new wxTextCtrl(
-        this, wxID_ANY, "",
-        wxDefaultPosition, wxDefaultSize,
-        wxTE_MULTILINE | wxTE_READONLY | wxTE_RICH2 | wxTE_AUTO_URL
-    );
+    m_log = new wxStyledTextCtrl(this, wxID_ANY);
+
+    // Make it read-only
+    m_log->SetReadOnly(true);
+
+    // Hide the caret
+    m_log->SetCaretWidth(0);
 
     // Use a monospace font for better readability
-    wxFont font = m_log->GetFont();
-    font.SetFamily(wxFONTFAMILY_TELETYPE);
-    m_log->SetFont(font);
+    wxFont font(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+    m_log->StyleSetFont(wxSTC_STYLE_DEFAULT, font);
+    m_log->StyleClearAll();  // Apply default style to all styles
+
+    // Disable margins (line numbers, folding, etc.)
+    m_log->SetMarginWidth(0, 0);
+    m_log->SetMarginWidth(1, 0);
+    m_log->SetMarginWidth(2, 0);
+
+    // Disable scroll bar on right (optional - keeps vertical scrollbar only)
+    m_log->SetUseHorizontalScrollBar(false);
+
+    // Set word wrap mode to wrap at word boundaries
+    m_log->SetWrapMode(wxSTC_WRAP_WORD);
 
     auto* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(m_log, 1, wxEXPAND | wxALL, 2);
@@ -31,8 +44,8 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
     // Bind char event to redirect typing to input
     m_log->Bind(wxEVT_CHAR, &LogPanel::OnChar, this);
 
-    // Bind URL click event
-    m_log->Bind(wxEVT_TEXT_URL, &LogPanel::OnURL, this);
+    // Bind left mouse click event for URL detection
+    m_log->Bind(wxEVT_LEFT_DOWN, &LogPanel::OnLeftDown, this);
 }
 
 void LogPanel::AppendLog(const wxString& line)
@@ -47,12 +60,23 @@ void LogPanel::AppendLog(const wxString& line)
     }
 
     output += line + "\n";
+
+    // Temporarily make writable to append text
+    m_log->SetReadOnly(false);
     m_log->AppendText(output);
+
+    // Auto-scroll to bottom
+    m_log->GotoPos(m_log->GetLength());
+
+    // Make read-only again
+    m_log->SetReadOnly(true);
 }
 
 void LogPanel::Clear()
 {
-    m_log->Clear();
+    m_log->SetReadOnly(false);
+    m_log->ClearAll();
+    m_log->SetReadOnly(true);
 }
 
 void LogPanel::SetSettings(const AppSettings* settings)
@@ -81,14 +105,57 @@ void LogPanel::OnChar(wxKeyEvent& evt)
     }
 }
 
-void LogPanel::OnURL(wxTextUrlEvent& evt)
+void LogPanel::OnLeftDown(wxMouseEvent& evt)
 {
-    // Only handle mouse clicks on URLs
-    if (evt.GetMouseEvent().LeftDown())
+    // Get position clicked
+    int pos = m_log->PositionFromPoint(wxPoint(evt.GetX(), evt.GetY()));
+
+    // Get the line at the clicked position
+    int line = m_log->LineFromPosition(pos);
+    wxString lineText = m_log->GetLine(line);
+
+    // Simple URL detection - look for http:// or https://
+    if (lineText.Contains("http://") || lineText.Contains("https://"))
     {
-        wxString url = m_log->GetRange(evt.GetURLStart(), evt.GetURLEnd());
-        wxLaunchDefaultBrowser(url);
+        // Find the URL in the line
+        int httpPos = lineText.Find("http://");
+        int httpsPos = lineText.Find("https://");
+        int urlStart = wxNOT_FOUND;
+
+        if (httpPos != wxNOT_FOUND && httpsPos != wxNOT_FOUND)
+            urlStart = wxMin(httpPos, httpsPos);
+        else if (httpPos != wxNOT_FOUND)
+            urlStart = httpPos;
+        else
+            urlStart = httpsPos;
+
+        if (urlStart != wxNOT_FOUND)
+        {
+            // Find the end of the URL (first whitespace or end of line)
+            int urlEnd = lineText.find_first_of(" \t\n\r", urlStart);
+            wxString url;
+            if (urlEnd == wxNOT_FOUND)
+                url = lineText.Mid(urlStart);
+            else
+                url = lineText.Mid(urlStart, urlEnd - urlStart);
+
+            // Remove trailing punctuation that's probably not part of the URL
+            while (!url.IsEmpty() && (url.Last() == '.' || url.Last() == ',' ||
+                   url.Last() == ')' || url.Last() == ']' || url.Last() == '}'))
+            {
+                url.RemoveLast();
+            }
+
+            if (!url.IsEmpty())
+            {
+                wxLaunchDefaultBrowser(url);
+                return;  // Don't skip the event - we handled it
+            }
+        }
     }
+
+    // Allow default handling (text selection, etc.)
+    evt.Skip();
 }
 
 // -------- ChannelPage --------

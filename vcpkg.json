@@ -5,7 +5,7 @@
   "dependencies": [
     {
       "name": "wxwidgets",
-      "features": ["aui"]
+      "features": ["aui", "stc"]
     }
   ]
 }
