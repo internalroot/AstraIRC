@@ -18,28 +18,13 @@ elseif(APPLE)
     set(MACOSX_BUNDLE_GUI_IDENTIFIER "com.astrairc.app")
 endif()
 
-# Find wxWidgets - works with both vcpkg CONFIG mode and system FindwxWidgets module
-# Try CONFIG mode first (vcpkg provides this)
-find_package(wxWidgets CONFIG QUIET COMPONENTS core base adv stc)
+# Find wxWidgets using MODULE mode (works with both vcpkg and system installations)
+# vcpkg's wxWidgets port uses FindwxWidgets.cmake (MODULE mode), not CONFIG mode
+# Request the components we need: core (GUI), base (non-GUI), adv (advanced), stc (styled text)
+find_package(wxWidgets REQUIRED COMPONENTS core base adv stc)
 
-if(NOT wxWidgets_FOUND)
-    # Fallback to module mode for system-installed wxWidgets (common on Linux/macOS)
-    message(STATUS "wxWidgets not found via CONFIG mode, trying MODULE mode...")
-    find_package(wxWidgets COMPONENTS core base adv stc)
-
-    if(wxWidgets_FOUND)
-        include(${wxWidgets_USE_FILE})
-    else()
-        message(FATAL_ERROR
-            "wxWidgets not found!\n"
-            "Please install wxWidgets using one of these methods:\n"
-            "  - Windows (vcpkg): Set VCPKG_ROOT environment variable and run 'vcpkg install wxwidgets:x64-windows'\n"
-            "  - Linux: Install via package manager (e.g., 'sudo apt install libwxgtk3.0-gtk3-dev')\n"
-            "  - macOS: Install via Homebrew ('brew install wxwidgets')\n"
-            "Or ensure CMAKE_TOOLCHAIN_FILE points to vcpkg.cmake if using vcpkg."
-        )
-    endif()
-endif()
+# Include wxWidgets configuration
+include(${wxWidgets_USE_FILE})
 
 # Source files
 set(SOURCES
@@ -62,19 +47,8 @@ add_executable(AstraIRC ${SOURCES})
 # Include directories
 target_include_directories(AstraIRC PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
-# Link wxWidgets (different syntax depending on how it was found)
-if(TARGET wx::core)
-    # vcpkg / CONFIG mode
-    target_link_libraries(AstraIRC PRIVATE
-        wx::core
-        wx::base
-        wx::adv
-        wx::stc
-    )
-else()
-    # Module mode (system wxWidgets) - wxWidgets_LIBRARIES includes all components
-    target_link_libraries(AstraIRC PRIVATE ${wxWidgets_LIBRARIES})
-endif()
+# Link wxWidgets libraries (MODULE mode provides wxWidgets_LIBRARIES variable)
+target_link_libraries(AstraIRC PRIVATE ${wxWidgets_LIBRARIES})
 
 # Platform-specific libraries
 if(WIN32)
