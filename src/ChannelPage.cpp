@@ -40,9 +40,6 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
     sizer->Add(m_log, 1, wxEXPAND | wxALL, 2);
     SetSizer(sizer);
 
-    // Bind char event to redirect typing to input
-    m_log->Bind(wxEVT_CHAR, &LogPanel::OnChar, this);
-
     // Block ALL key events to prevent any editing
     m_log->Bind(wxEVT_KEY_DOWN, [this](wxKeyEvent& evt) {
         // Consume all key events and redirect to input
@@ -53,6 +50,18 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
             }
         }
         // Don't skip - consume the event to prevent any editing
+    });
+
+    // ALSO block CHAR events - critical to prevent text insertion!
+    m_log->Bind(wxEVT_CHAR, [this](wxKeyEvent& evt) {
+        // Consume char events too - this prevents text from being inserted
+        if (m_serverPanel) {
+            wxTextCtrl* input = m_serverPanel->GetInputCtrl();
+            if (input && !input->HasFocus()) {
+                input->SetFocus();
+            }
+        }
+        // Don't skip - consume to prevent editing
     });
 
     // Handle mouse clicks for URL detection
@@ -306,7 +315,15 @@ void LogPanel::ParseIRCColors(const wxString& input, std::vector<IRCTextSegment>
         segments.push_back(current);
 }
 
-// Append text with IRC color codes parsed
+// Helper to detect if text contains a URL
+bool ContainsURL(const wxString& text) {
+    return text.Find("http://") != wxNOT_FOUND ||
+           text.Find("https://") != wxNOT_FOUND ||
+           text.Find("www.") != wxNOT_FOUND ||
+           text.Find("ftp://") != wxNOT_FOUND;
+}
+
+// Append text with IRC color codes parsed and URLs styled
 void LogPanel::AppendIRCStyledText(const wxString& text)
 {
     std::vector<IRCTextSegment> segments;
@@ -314,28 +331,114 @@ void LogPanel::AppendIRCStyledText(const wxString& text)
 
     for (const auto& seg : segments)
     {
-        wxRichTextAttr attr;
+        // Check if this segment contains a URL
+        if (ContainsURL(seg.text))
+        {
+            // Split and style URLs within this segment
+            wxString remaining = seg.text;
+            while (!remaining.IsEmpty())
+            {
+                int urlPos = -1;
+                wxString protocol;
 
-        // Set colors
-        if (!seg.useDefaultFg)
-            attr.SetTextColour(seg.foreground);
+                // Find URL start
+                int httpPos = remaining.Find("http://");
+                int httpsPos = remaining.Find("https://");
+                int wwwPos = remaining.Find("www.");
+                int ftpPos = remaining.Find("ftp://");
+
+                if (httpPos != wxNOT_FOUND) { urlPos = httpPos; protocol = "http://"; }
+                if (httpsPos != wxNOT_FOUND && (urlPos == -1 || httpsPos < urlPos)) { urlPos = httpsPos; protocol = "https://"; }
+                if (wwwPos != wxNOT_FOUND && (urlPos == -1 || wwwPos < urlPos)) { urlPos = wwwPos; protocol = "www."; }
+                if (ftpPos != wxNOT_FOUND && (urlPos == -1 || ftpPos < urlPos)) { urlPos = ftpPos; protocol = "ftp://"; }
+
+                if (urlPos == -1)
+                {
+                    // No URL found, write remaining text with normal style
+                    wxRichTextAttr attr;
+                    if (!seg.useDefaultFg)
+                        attr.SetTextColour(seg.foreground);
+                    else
+                        attr.SetTextColour(m_defaultForeground);
+                    if (!seg.useDefaultBg)
+                        attr.SetBackgroundColour(seg.background);
+                    wxFont font(10, wxFONTFAMILY_TELETYPE,
+                               seg.italic ? wxFONTSTYLE_ITALIC : wxFONTSTYLE_NORMAL,
+                               seg.bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL,
+                               seg.underline);
+                    attr.SetFont(font);
+                    m_log->BeginStyle(attr);
+                    m_log->WriteText(remaining);
+                    m_log->EndStyle();
+                    break;
+                }
+
+                // Write text before URL
+                if (urlPos > 0)
+                {
+                    wxRichTextAttr attr;
+                    if (!seg.useDefaultFg)
+                        attr.SetTextColour(seg.foreground);
+                    else
+                        attr.SetTextColour(m_defaultForeground);
+                    if (!seg.useDefaultBg)
+                        attr.SetBackgroundColour(seg.background);
+                    wxFont font(10, wxFONTFAMILY_TELETYPE,
+                               seg.italic ? wxFONTSTYLE_ITALIC : wxFONTSTYLE_NORMAL,
+                               seg.bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL,
+                               seg.underline);
+                    attr.SetFont(font);
+                    m_log->BeginStyle(attr);
+                    m_log->WriteText(remaining.Mid(0, urlPos));
+                    m_log->EndStyle();
+                }
+
+                // Find URL end
+                int urlEnd = remaining.find_first_of(" \t\n\r", urlPos);
+                wxString url = (urlEnd == wxNOT_FOUND) ? remaining.Mid(urlPos) : remaining.Mid(urlPos, urlEnd - urlPos);
+
+                // Clean trailing punctuation
+                while (!url.IsEmpty() && (url.Last() == '.' || url.Last() == ',' ||
+                       url.Last() == ')' || url.Last() == ']' || url.Last() == '}')) {
+                    url.RemoveLast();
+                }
+
+                // Style URL with blue color and underline
+                wxRichTextAttr urlAttr;
+                urlAttr.SetTextColour(wxColour(100, 150, 255));  // Bright blue
+                wxFont urlFont(10, wxFONTFAMILY_TELETYPE,
+                              wxFONTSTYLE_NORMAL,
+                              seg.bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL,
+                              true);  // underlined
+                urlAttr.SetFont(urlFont);
+                m_log->BeginStyle(urlAttr);
+                m_log->WriteText(url);
+                m_log->EndStyle();
+
+                // Update remaining
+                int consumedLen = urlPos + url.Length();
+                remaining = (urlEnd == wxNOT_FOUND) ? "" : remaining.Mid(urlEnd);
+            }
+        }
         else
-            attr.SetTextColour(m_defaultForeground);
-
-        if (!seg.useDefaultBg)
-            attr.SetBackgroundColour(seg.background);
-
-        // Set font styling
-        wxFont font(10, wxFONTFAMILY_TELETYPE,
-                   seg.italic ? wxFONTSTYLE_ITALIC : wxFONTSTYLE_NORMAL,
-                   seg.bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL,
-                   seg.underline);
-        attr.SetFont(font);
-
-        // Append with style
-        m_log->BeginStyle(attr);
-        m_log->WriteText(seg.text);
-        m_log->EndStyle();
+        {
+            // Normal segment without URL
+            wxRichTextAttr attr;
+            if (!seg.useDefaultFg)
+                attr.SetTextColour(seg.foreground);
+            else
+                attr.SetTextColour(m_defaultForeground);
+            if (!seg.useDefaultBg)
+                attr.SetBackgroundColour(seg.background);
+            wxFont font(10, wxFONTFAMILY_TELETYPE,
+                       seg.italic ? wxFONTSTYLE_ITALIC : wxFONTSTYLE_NORMAL,
+                       seg.bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL,
+                       seg.underline);
+            attr.SetFont(font);
+            m_log->BeginStyle(attr);
+            m_log->WriteText(seg.text);
+            m_log->EndStyle();
+        }
     }
 }
 
@@ -509,27 +612,6 @@ void LogPanel::Clear()
 void LogPanel::SetSettings(const AppSettings* settings)
 {
     m_settings = settings;
-}
-
-void LogPanel::OnChar(wxKeyEvent& evt)
-{
-    // When user types in the log, redirect focus to input and send the character there
-    if (m_serverPanel)
-    {
-        wxTextCtrl* input = m_serverPanel->GetInputCtrl();
-        if (input)
-        {
-            // Focus the input first
-            input->SetFocus();
-
-            // Append the character to the input
-            wxChar ch = evt.GetUnicodeKey();
-            if (ch != WXK_NONE)
-            {
-                input->WriteText(wxString(ch));
-            }
-        }
-    }
 }
 
 // -------- ChannelPage --------

@@ -32,8 +32,6 @@ public:
     void AppendIRCStyledText(const wxString& text);
 
 private:
-    void OnChar(wxKeyEvent& evt);
-
     // IRC color code helpers
     wxColour GetIRCColor(int colorCode);
     struct IRCTextSegment
