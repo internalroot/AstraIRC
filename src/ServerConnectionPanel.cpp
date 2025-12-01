@@ -750,7 +750,7 @@ void ServerConnectionPanel::OnSend(wxCommandEvent&)
                     // Echo locally
                     auto it = m_channels.find(chanName);
                     if (it != m_channels.end())
-                        it->second->AppendLog("* " + m_nick + " " + action);
+                        it->second->AppendAction(m_nick, action);
                 }
                 else
                 {
@@ -767,7 +767,7 @@ void ServerConnectionPanel::OnSend(wxCommandEvent&)
                 // Echo locally
                 auto it = m_channels.find(chanName);
                 if (it != m_channels.end())
-                    it->second->AppendLog("<" + m_nick + "> " + text);
+                    it->second->AppendChatMessage(m_nick, text);
             }
         }
     }
