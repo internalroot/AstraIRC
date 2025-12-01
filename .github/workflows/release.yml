@@ -11,6 +11,9 @@ on:
         required: true
         default: 'v1.2.0-beta.1'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build ${{ matrix.os }}
@@ -22,13 +25,13 @@ jobs:
         include:
           - os: windows-latest
             artifact_name: AstraIRC-Windows
-            artifact_path: build/Release/AstraIRC.exe
+            artifact_path: AstraIRC-Windows.zip
           - os: macos-latest
             artifact_name: AstraIRC-macOS
-            artifact_path: build/AstraIRC.app
+            artifact_path: build/AstraIRC-macOS.zip
           - os: ubuntu-latest
             artifact_name: AstraIRC-Linux
-            artifact_path: build/AstraIRC
+            artifact_path: build/AstraIRC-Linux.zip
 
     steps:
       - name: Checkout code
@@ -58,8 +61,10 @@ jobs:
       # Build steps
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
+        env:
+          VCPKG_ROOT: ${{ env.RUNVCPKG_VCPKG_ROOT }}
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="${RUNVCPKG_VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+          cmake --preset x64-release
         shell: bash
 
       - name: Configure CMake (Unix)
@@ -67,7 +72,15 @@ jobs:
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        env:
+          VCPKG_ROOT: ${{ env.RUNVCPKG_VCPKG_ROOT }}
+        run: |
+          cmake --build --preset x64-release
+
+      - name: Build (Unix)
+        if: runner.os != 'Windows'
         run: |
           cmake --build build --config Release
 
@@ -76,28 +89,28 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           cd build
-          # Create a distributable .app bundle
-          mkdir -p AstraIRC-macOS
-          cp -r AstraIRC.app AstraIRC-macOS/ || cp AstraIRC AstraIRC-macOS/
-          tar -czf AstraIRC-macOS.tar.gz AstraIRC-macOS
+          # Create a zip file for macOS .app bundle
+          zip -r AstraIRC-macOS.zip AstraIRC.app
 
       # Package for Linux
       - name: Package Linux Binary
         if: runner.os == 'Linux'
         run: |
+          # Just create a zip with the binary
           cd build
-          mkdir -p AstraIRC-Linux
-          cp AstraIRC AstraIRC-Linux/
-          tar -czf AstraIRC-Linux.tar.gz AstraIRC-Linux
+          zip AstraIRC-Linux.zip AstraIRC
 
       # Package for Windows
       - name: Package Windows Binary
         if: runner.os == 'Windows'
         run: |
-          cd build/Release
           mkdir AstraIRC-Windows
-          cp AstraIRC.exe AstraIRC-Windows/
-          tar -czf AstraIRC-Windows.tar.gz AstraIRC-Windows
+          # Copy the executable
+          cp out/build/x64-release/Release/AstraIRC.exe AstraIRC-Windows/
+          # Copy required DLLs from vcpkg
+          cp vcpkg_installed/x64-windows/bin/*.dll AstraIRC-Windows/ 2>/dev/null || true
+          # Create a zip file (Windows standard)
+          powershell Compress-Archive -Path AstraIRC-Windows -DestinationPath AstraIRC-Windows.zip
         shell: bash
 
       # Upload artifacts
@@ -106,21 +119,21 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: build/Release/AstraIRC-Windows.tar.gz
+          path: AstraIRC-Windows.zip
 
       - name: Upload Artifact (macOS)
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: build/AstraIRC-macOS.tar.gz
+          path: build/AstraIRC-macOS.zip
 
       - name: Upload Artifact (Linux)
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: build/AstraIRC-Linux.tar.gz
+          path: build/AstraIRC-Linux.zip
 
   release:
     name: Create Release
@@ -162,20 +175,22 @@ jobs:
             Pre-release build for testing purposes.
 
             ### Downloads
-            - **Windows**: Download `AstraIRC-Windows.tar.gz`, extract and run `AstraIRC.exe`
-            - **macOS**: Download `AstraIRC-macOS.tar.gz`, extract and run `AstraIRC.app`
-            - **Linux**: Download `AstraIRC-Linux.tar.gz`, extract and run `AstraIRC`
+            - **Windows**: Download `AstraIRC-Windows.zip`, extract and run `AstraIRC.exe`
+            - **macOS**: Download `AstraIRC-macOS.zip`, extract and run `AstraIRC.app`
+            - **Linux**: Download `AstraIRC-Linux.zip`, extract and run `AstraIRC`
 
             ### Installation
 
             #### Windows
-            1. Download `AstraIRC-Windows.tar.gz`
-            2. Extract the archive
+            1. Download `AstraIRC-Windows.zip`
+            2. Extract the zip file
             3. Run `AstraIRC.exe`
 
+            Note: All required DLLs are included in the package.
+
             #### macOS
-            1. Download `AstraIRC-macOS.tar.gz`
-            2. Extract the archive
+            1. Download `AstraIRC-macOS.zip`
+            2. Extract the zip file
             3. Run `AstraIRC.app`
 
             #### Linux
@@ -183,14 +198,14 @@ jobs:
                - **Debian/Ubuntu**: `sudo apt-get install libwxgtk3.2-1`
                - **Fedora**: `sudo dnf install wxGTK3`
                - **Arch**: `sudo pacman -S wxwidgets-gtk3`
-            2. Download `AstraIRC-Linux.tar.gz`
-            3. Extract the archive
+            2. Download `AstraIRC-Linux.zip`
+            3. Extract the zip file
             4. Run `./AstraIRC`
 
             Please report any issues on the GitHub issue tracker.
           files: |
-            artifacts/AstraIRC-Windows/AstraIRC-Windows.tar.gz
-            artifacts/AstraIRC-macOS/AstraIRC-macOS.tar.gz
-            artifacts/AstraIRC-Linux/AstraIRC-Linux.tar.gz
+            artifacts/AstraIRC-Windows/AstraIRC-Windows.zip
+            artifacts/AstraIRC-macOS/AstraIRC-macOS.zip
+            artifacts/AstraIRC-Linux/AstraIRC-Linux.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
