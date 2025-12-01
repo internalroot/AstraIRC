@@ -18,7 +18,7 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
 {
     m_log = new wxRichTextCtrl(this, wxID_ANY, wxEmptyString,
         wxDefaultPosition, wxDefaultSize,
-        wxTE_READONLY | wxTE_MULTILINE | wxVSCROLL | wxTE_AUTO_URL | wxTE_RICH2);
+        wxTE_READONLY | wxTE_MULTILINE | wxVSCROLL | wxTE_RICH2);
 
     // Set dark background and default colors
     m_log->SetBackgroundColour(m_defaultBackground);
@@ -43,8 +43,105 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
     // Bind char event to redirect typing to input
     m_log->Bind(wxEVT_CHAR, &LogPanel::OnChar, this);
 
-    // Bind URL click event
-    m_log->Bind(wxEVT_TEXT_URL, &LogPanel::OnURL, this);
+    // Block ALL key events to prevent any editing
+    m_log->Bind(wxEVT_KEY_DOWN, [this](wxKeyEvent& evt) {
+        // Redirect ALL keys to input, including Enter, arrows, etc.
+        if (m_serverPanel) {
+            wxTextCtrl* input = m_serverPanel->GetInputCtrl();
+            if (input) {
+                input->SetFocus();
+                // Send the key event to the input
+                wxKeyEvent newEvt(evt);
+                input->GetEventHandler()->ProcessEvent(newEvt);
+                return;  // Don't skip - we handled it
+            }
+        }
+        evt.Skip();
+    });
+
+    // Handle mouse clicks for URL detection
+    m_log->Bind(wxEVT_LEFT_UP, [this](wxMouseEvent& evt) {
+        // Check if user was selecting text (don't treat as URL click)
+        long selStart, selEnd;
+        m_log->GetSelection(&selStart, &selEnd);
+        if (selStart != selEnd) {
+            evt.Skip();
+            return;
+        }
+
+        // Get click position and check for URL
+        long pos = m_log->GetInsertionPoint();
+        wxString line = m_log->GetLineText(m_log->PositionToXY(pos, nullptr, nullptr) ? 0 : 0);
+
+        // Get the full range of text around the click
+        wxRichTextLine* textLine = m_log->GetBuffer().GetLineAtPosition(pos);
+        if (textLine) {
+            wxRichTextRange lineRange = textLine->GetAbsoluteRange();
+            wxString lineText = m_log->GetRange(lineRange.GetStart(), lineRange.GetEnd());
+
+            // Find URL in the line (http://, https://, www., or ftp://)
+            wxArrayString urlPatterns;
+            urlPatterns.Add("http://");
+            urlPatterns.Add("https://");
+            urlPatterns.Add("www.");
+            urlPatterns.Add("ftp://");
+
+            for (const wxString& pattern : urlPatterns) {
+                int urlPos = lineText.Find(pattern);
+                if (urlPos != wxNOT_FOUND) {
+                    // Find end of URL (space, newline, or end of line)
+                    int urlEnd = lineText.find_first_of(" \t\n\r", urlPos);
+                    wxString url;
+                    if (urlEnd == wxNOT_FOUND) {
+                        url = lineText.Mid(urlPos);
+                    } else {
+                        url = lineText.Mid(urlPos, urlEnd - urlPos);
+                    }
+
+                    // Remove trailing punctuation
+                    while (!url.IsEmpty() && (url.Last() == '.' || url.Last() == ',' ||
+                           url.Last() == ')' || url.Last() == ']' || url.Last() == '}')) {
+                        url.RemoveLast();
+                    }
+
+                    // Add http:// if it's a www. URL
+                    if (url.StartsWith("www.")) {
+                        url = "http://" + url;
+                    }
+
+                    if (!url.IsEmpty()) {
+                        wxLaunchDefaultBrowser(url);
+                        return;
+                    }
+                }
+            }
+        }
+
+        evt.Skip();
+    });
+
+    // Change cursor to hand over URLs
+    m_log->Bind(wxEVT_MOTION, [this](wxMouseEvent& evt) {
+        long pos = m_log->GetInsertionPoint();
+        wxRichTextLine* textLine = m_log->GetBuffer().GetLineAtPosition(pos);
+
+        if (textLine) {
+            wxRichTextRange lineRange = textLine->GetAbsoluteRange();
+            wxString lineText = m_log->GetRange(lineRange.GetStart(), lineRange.GetEnd());
+
+            // Check if line contains a URL
+            if (lineText.Find("http://") != wxNOT_FOUND ||
+                lineText.Find("https://") != wxNOT_FOUND ||
+                lineText.Find("www.") != wxNOT_FOUND ||
+                lineText.Find("ftp://") != wxNOT_FOUND) {
+                m_log->SetCursor(wxCursor(wxCURSOR_HAND));
+            } else {
+                m_log->SetCursor(wxCursor(wxCURSOR_IBEAM));
+            }
+        }
+
+        evt.Skip();
+    });
 
     // CRITICAL: Prevent log area from ever holding focus
     // When log area tries to get focus, immediately redirect to input box
@@ -440,20 +537,6 @@ void LogPanel::OnChar(wxKeyEvent& evt)
                 input->WriteText(wxString(ch));
             }
         }
-    }
-}
-
-void LogPanel::OnURL(wxTextUrlEvent& evt)
-{
-    if (evt.GetMouseEvent().LeftDown())
-    {
-        // Get the URL text
-        long urlStart = evt.GetURLStart();
-        long urlEnd = evt.GetURLEnd();
-        wxString url = m_log->GetRange(urlStart, urlEnd);
-
-        // Launch the URL in default browser
-        wxLaunchDefaultBrowser(url);
     }
 }
 

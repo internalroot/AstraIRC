@@ -33,7 +33,6 @@ public:
 
 private:
     void OnChar(wxKeyEvent& evt);
-    void OnURL(wxTextUrlEvent& evt);
 
     // IRC color code helpers
     wxColour GetIRCColor(int colorCode);
