@@ -77,19 +77,18 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
             return;
         }
 
-        // Get click position
+        // Get click position using HitTest
         wxPoint pt = evt.GetPosition();
-        long pos = m_log->GetInsertionPoint();
+        wxTextCoord col, row;
+        wxTextCtrlHitTestResult result = m_log->HitTest(pt, &col, &row);
 
-        // Get the text at click position
-        wxRichTextLine* textLine = m_log->GetBuffer().GetLineAtPosition(pos);
-        if (!textLine) {
+        if (result == wxTE_HT_UNKNOWN || result == wxTE_HT_BEYOND) {
             evt.Skip();
             return;
         }
 
-        wxRichTextRange lineRange = textLine->GetAbsoluteRange();
-        wxString lineText = m_log->GetRange(lineRange.GetStart(), lineRange.GetEnd());
+        // Get the line text at this row
+        wxString lineText = m_log->GetLineText(row);
 
         // Simple URL detection
         int httpPos = lineText.Find("http://");
@@ -106,8 +105,8 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
             int urlEnd = lineText.find_first_of(" \t\n\r", urlStart);
             wxString url = (urlEnd == wxNOT_FOUND) ? lineText.Mid(urlStart) : lineText.Mid(urlStart, urlEnd - urlStart);
 
-            // Clean up trailing punctuation
-            while (!url.IsEmpty() && (url.Last() == '.' || url.Last() == ',' ||
+            // Clean up trailing punctuation (but not domain extensions!)
+            while (!url.IsEmpty() && (url.Last() == ',' ||
                    url.Last() == ')' || url.Last() == ']' || url.Last() == '}')) {
                 url.RemoveLast();
             }
@@ -437,8 +436,8 @@ void LogPanel::AppendIRCStyledText(const wxString& text)
                 int urlEnd = remaining.find_first_of(" \t\n\r", urlPos);
                 wxString url = (urlEnd == wxNOT_FOUND) ? remaining.Mid(urlPos) : remaining.Mid(urlPos, urlEnd - urlPos);
 
-                // Clean trailing punctuation
-                while (!url.IsEmpty() && (url.Last() == '.' || url.Last() == ',' ||
+                // Clean trailing punctuation (but not domain extensions!)
+                while (!url.IsEmpty() && (url.Last() == ',' ||
                        url.Last() == ')' || url.Last() == ']' || url.Last() == '}')) {
                     url.RemoveLast();
                 }
