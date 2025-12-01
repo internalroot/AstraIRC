@@ -53,6 +53,10 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
 
 void LogPanel::InitializeStyles()
 {
+    // Set dark background for the entire control
+    m_log->StyleSetBackground(wxSTC_STYLE_DEFAULT, wxColour(30, 30, 30));  // Dark gray background
+    m_log->SetCaretForeground(wxColour(255, 255, 255));  // White caret (if visible)
+
     // Get the base monospace font
     wxFont baseFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
     wxFont boldFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD);
@@ -61,38 +65,47 @@ void LogPanel::InitializeStyles()
     // STYLE_DEFAULT - Default text color
     m_log->StyleSetFont(STYLE_DEFAULT, baseFont);
     m_log->StyleSetForeground(STYLE_DEFAULT, wxColour(220, 220, 220));  // Light gray
+    m_log->StyleSetBackground(STYLE_DEFAULT, wxColour(30, 30, 30));  // Dark gray background
 
     // STYLE_TIMESTAMP - Gray, slightly dimmed
     m_log->StyleSetFont(STYLE_TIMESTAMP, baseFont);
     m_log->StyleSetForeground(STYLE_TIMESTAMP, wxColour(128, 128, 128));  // Gray
+    m_log->StyleSetBackground(STYLE_TIMESTAMP, wxColour(30, 30, 30));
 
     // STYLE_NICK - Cyan/Blue for nicknames
     m_log->StyleSetFont(STYLE_NICK, boldFont);  // Bold nicknames
     m_log->StyleSetForeground(STYLE_NICK, wxColour(100, 200, 255));  // Light cyan/blue
+    m_log->StyleSetBackground(STYLE_NICK, wxColour(30, 30, 30));
 
     // STYLE_SYSTEM - Green for system messages
     m_log->StyleSetFont(STYLE_SYSTEM, baseFont);
     m_log->StyleSetForeground(STYLE_SYSTEM, wxColour(100, 200, 100));  // Light green
+    m_log->StyleSetBackground(STYLE_SYSTEM, wxColour(30, 30, 30));
 
     // STYLE_ERROR - Red for errors
     m_log->StyleSetFont(STYLE_ERROR, boldFont);  // Bold errors
     m_log->StyleSetForeground(STYLE_ERROR, wxColour(255, 100, 100));  // Light red
+    m_log->StyleSetBackground(STYLE_ERROR, wxColour(30, 30, 30));
 
     // STYLE_ACTION - Purple/Magenta for actions
     m_log->StyleSetFont(STYLE_ACTION, italicFont);  // Italic actions
     m_log->StyleSetForeground(STYLE_ACTION, wxColour(200, 120, 255));  // Purple
+    m_log->StyleSetBackground(STYLE_ACTION, wxColour(30, 30, 30));
 
     // STYLE_NOTICE - Yellow/Orange for notices
     m_log->StyleSetFont(STYLE_NOTICE, baseFont);
     m_log->StyleSetForeground(STYLE_NOTICE, wxColour(255, 180, 80));  // Orange
+    m_log->StyleSetBackground(STYLE_NOTICE, wxColour(30, 30, 30));
 
     // STYLE_TOPIC - Bright cyan for topics
     m_log->StyleSetFont(STYLE_TOPIC, baseFont);
     m_log->StyleSetForeground(STYLE_TOPIC, wxColour(80, 220, 220));  // Bright cyan
+    m_log->StyleSetBackground(STYLE_TOPIC, wxColour(30, 30, 30));
 
     // STYLE_URL - Bright blue, underlined for URLs
     m_log->StyleSetFont(STYLE_URL, baseFont);
     m_log->StyleSetForeground(STYLE_URL, wxColour(100, 150, 255));  // Bright blue
+    m_log->StyleSetBackground(STYLE_URL, wxColour(30, 30, 30));
     m_log->StyleSetUnderline(STYLE_URL, true);  // Underlined
 }
 
