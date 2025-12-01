@@ -1,7 +1,7 @@
 #pragma once
 
 #include <wx/panel.h>
-#include <wx/textctrl.h>
+#include <wx/stc/stc.h>
 #include <wx/listbox.h>
 #include <wx/sizer.h>
 #include <wx/string.h>
@@ -22,9 +22,9 @@ public:
 
 private:
     void OnChar(wxKeyEvent& evt);
-    void OnURL(wxTextUrlEvent& evt);
+    void OnLeftDown(wxMouseEvent& evt);
 
-    wxTextCtrl* m_log = nullptr;
+    wxStyledTextCtrl* m_log = nullptr;
     const AppSettings* m_settings = nullptr;
     ServerConnectionPanel* m_serverPanel = nullptr;
 };

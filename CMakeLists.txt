@@ -20,12 +20,12 @@ endif()
 
 # Find wxWidgets - works with both vcpkg CONFIG mode and system FindwxWidgets module
 # Try CONFIG mode first (vcpkg provides this)
-find_package(wxWidgets CONFIG QUIET COMPONENTS core base aui)
+find_package(wxWidgets CONFIG QUIET COMPONENTS core base aui stc)
 
 if(NOT wxWidgets_FOUND)
     # Fallback to module mode for system-installed wxWidgets (common on Linux/macOS)
     message(STATUS "wxWidgets not found via CONFIG mode, trying MODULE mode...")
-    find_package(wxWidgets COMPONENTS core base aui)
+    find_package(wxWidgets COMPONENTS core base aui stc)
 
     if(wxWidgets_FOUND)
         include(${wxWidgets_USE_FILE})
@@ -69,6 +69,7 @@ if(TARGET wx::core)
         wx::core
         wx::base
         wx::aui
+        wx::stc
     )
 else()
     # Module mode (system wxWidgets) - wxWidgets_LIBRARIES includes all components
