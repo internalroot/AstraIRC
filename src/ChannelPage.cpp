@@ -3,42 +3,39 @@
 #include "ServerConnectionPanel.h"
 
 #include <wx/datetime.h>
-#include <wx/stc/stc.h>
+#include <wx/richtext/richtextctrl.h>
 #include <wx/utils.h>
+#include <vector>
 
 // -------- LogPanel --------
 
 LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnectionPanel* serverPanel)
     : wxPanel(parent, wxID_ANY),
       m_settings(settings),
-      m_serverPanel(serverPanel)
+      m_serverPanel(serverPanel),
+      m_defaultForeground(wxColour(220, 220, 220)),
+      m_defaultBackground(wxColour(30, 30, 30))
 {
-    m_log = new wxStyledTextCtrl(this, wxID_ANY);
+    m_log = new wxRichTextCtrl(this, wxID_ANY, wxEmptyString,
+        wxDefaultPosition, wxDefaultSize,
+        wxTE_READONLY | wxTE_MULTILINE | wxVSCROLL | wxTE_AUTO_URL | wxTE_RICH2);
 
-    // Make it read-only
-    m_log->SetReadOnly(true);
-
-    // Hide the caret
-    m_log->SetCaretWidth(0);
+    // Set dark background and default colors
+    m_log->SetBackgroundColour(m_defaultBackground);
 
     // Use a monospace font for better readability
     wxFont font(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
-    m_log->StyleSetFont(wxSTC_STYLE_DEFAULT, font);
-    m_log->StyleClearAll();  // Apply default style to all styles
 
-    // Initialize text styles (colors, bold, italic, etc.)
-    InitializeStyles();
+    // Set default text style
+    wxRichTextAttr defaultStyle;
+    defaultStyle.SetTextColour(m_defaultForeground);
+    defaultStyle.SetBackgroundColour(m_defaultBackground);
+    defaultStyle.SetFont(font);
+    m_log->SetBasicStyle(defaultStyle);
 
-    // Disable margins (line numbers, folding, etc.)
-    m_log->SetMarginWidth(0, 0);
-    m_log->SetMarginWidth(1, 0);
-    m_log->SetMarginWidth(2, 0);
-
-    // Disable scroll bar on right (optional - keeps vertical scrollbar only)
-    m_log->SetUseHorizontalScrollBar(false);
-
-    // Set word wrap mode to wrap at word boundaries
-    m_log->SetWrapMode(wxSTC_WRAP_WORD);
+    // Disable the caret more reliably
+    m_log->SetCaretAtLineStart(false);
+    m_log->ShowCaret(false);
 
     auto* sizer = new wxBoxSizer(wxVERTICAL);
     sizer->Add(m_log, 1, wxEXPAND | wxALL, 2);
@@ -47,110 +44,197 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
     // Bind char event to redirect typing to input
     m_log->Bind(wxEVT_CHAR, &LogPanel::OnChar, this);
 
-    // Bind left mouse click event for URL detection
-    // Use LEFT_UP instead of LEFT_DOWN to avoid interfering with text selection
-    m_log->Bind(wxEVT_LEFT_UP, &LogPanel::OnLeftDown, this);
-
-    // Also bind motion event to change cursor over URLs
-    m_log->Bind(wxEVT_MOTION, &LogPanel::OnMouseMove, this);
+    // Bind URL click event
+    m_log->Bind(wxEVT_TEXT_URL, &LogPanel::OnURL, this);
 }
 
-void LogPanel::InitializeStyles()
+// IRC color palette (mIRC standard colors)
+wxColour LogPanel::GetIRCColor(int colorCode)
 {
-    // Set dark background for the entire control
-    m_log->StyleSetBackground(wxSTC_STYLE_DEFAULT, wxColour(30, 30, 30));  // Dark gray background
-    m_log->SetCaretForeground(wxColour(255, 255, 255));  // White caret (if visible)
+    static const wxColour IRC_COLORS[] = {
+        wxColour(255, 255, 255),  // 0  - White
+        wxColour(0,   0,   0),    // 1  - Black
+        wxColour(0,   0,   127),  // 2  - Blue
+        wxColour(0,   147, 0),    // 3  - Green
+        wxColour(255, 0,   0),    // 4  - Red
+        wxColour(127, 0,   0),    // 5  - Brown/Maroon
+        wxColour(156, 0,   156),  // 6  - Purple
+        wxColour(252, 127, 0),    // 7  - Orange
+        wxColour(255, 255, 0),    // 8  - Yellow
+        wxColour(0,   252, 0),    // 9  - Light Green
+        wxColour(0,   147, 147),  // 10 - Cyan
+        wxColour(0,   255, 255),  // 11 - Light Cyan
+        wxColour(0,   0,   252),  // 12 - Light Blue
+        wxColour(255, 0,   255),  // 13 - Pink/Magenta
+        wxColour(127, 127, 127),  // 14 - Gray
+        wxColour(210, 210, 210)   // 15 - Light Gray
+    };
 
-    // Get the base monospace font
-    wxFont baseFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
-    wxFont boldFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD);
-    wxFont italicFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_ITALIC, wxFONTWEIGHT_NORMAL);
+    if (colorCode >= 0 && colorCode < 16)
+        return IRC_COLORS[colorCode];
 
-    // STYLE_DEFAULT - Default text color
-    m_log->StyleSetFont(STYLE_DEFAULT, baseFont);
-    m_log->StyleSetForeground(STYLE_DEFAULT, wxColour(220, 220, 220));  // Light gray
-    m_log->StyleSetBackground(STYLE_DEFAULT, wxColour(30, 30, 30));  // Dark gray background
-
-    // STYLE_TIMESTAMP - Gray, slightly dimmed
-    m_log->StyleSetFont(STYLE_TIMESTAMP, baseFont);
-    m_log->StyleSetForeground(STYLE_TIMESTAMP, wxColour(128, 128, 128));  // Gray
-    m_log->StyleSetBackground(STYLE_TIMESTAMP, wxColour(30, 30, 30));
-
-    // STYLE_NICK - Cyan/Blue for nicknames
-    m_log->StyleSetFont(STYLE_NICK, boldFont);  // Bold nicknames
-    m_log->StyleSetForeground(STYLE_NICK, wxColour(100, 200, 255));  // Light cyan/blue
-    m_log->StyleSetBackground(STYLE_NICK, wxColour(30, 30, 30));
-
-    // STYLE_SYSTEM - Green for system messages
-    m_log->StyleSetFont(STYLE_SYSTEM, baseFont);
-    m_log->StyleSetForeground(STYLE_SYSTEM, wxColour(100, 200, 100));  // Light green
-    m_log->StyleSetBackground(STYLE_SYSTEM, wxColour(30, 30, 30));
-
-    // STYLE_ERROR - Red for errors
-    m_log->StyleSetFont(STYLE_ERROR, boldFont);  // Bold errors
-    m_log->StyleSetForeground(STYLE_ERROR, wxColour(255, 100, 100));  // Light red
-    m_log->StyleSetBackground(STYLE_ERROR, wxColour(30, 30, 30));
-
-    // STYLE_ACTION - Purple/Magenta for actions
-    m_log->StyleSetFont(STYLE_ACTION, italicFont);  // Italic actions
-    m_log->StyleSetForeground(STYLE_ACTION, wxColour(200, 120, 255));  // Purple
-    m_log->StyleSetBackground(STYLE_ACTION, wxColour(30, 30, 30));
-
-    // STYLE_NOTICE - Yellow/Orange for notices
-    m_log->StyleSetFont(STYLE_NOTICE, baseFont);
-    m_log->StyleSetForeground(STYLE_NOTICE, wxColour(255, 180, 80));  // Orange
-    m_log->StyleSetBackground(STYLE_NOTICE, wxColour(30, 30, 30));
-
-    // STYLE_TOPIC - Bright cyan for topics
-    m_log->StyleSetFont(STYLE_TOPIC, baseFont);
-    m_log->StyleSetForeground(STYLE_TOPIC, wxColour(80, 220, 220));  // Bright cyan
-    m_log->StyleSetBackground(STYLE_TOPIC, wxColour(30, 30, 30));
-
-    // STYLE_URL - Bright blue, underlined for URLs
-    m_log->StyleSetFont(STYLE_URL, baseFont);
-    m_log->StyleSetForeground(STYLE_URL, wxColour(100, 150, 255));  // Bright blue
-    m_log->StyleSetBackground(STYLE_URL, wxColour(30, 30, 30));
-    m_log->StyleSetUnderline(STYLE_URL, true);  // Underlined
+    return m_defaultForeground;  // Default if out of range
 }
 
-void LogPanel::AppendStyledText(const wxString& text, TextStyle style)
+// Parse IRC color codes from text
+void LogPanel::ParseIRCColors(const wxString& input, std::vector<IRCTextSegment>& segments)
 {
-    if (text.IsEmpty())
-        return;
+    IRCTextSegment current;
+    size_t i = 0;
 
-    // Temporarily make writable to append text
-    m_log->SetReadOnly(false);
-
-    // Get current position to start styling
-    int startPos = m_log->GetLength();
-
-    // Append the text
-    m_log->AppendText(text);
-
-    // Apply the style to the newly added text
-    int endPos = m_log->GetLength();
-    m_log->StartStyling(startPos);
-    m_log->SetStyling(endPos - startPos, style);
-
-    // Auto-scroll to bottom
-    m_log->GotoPos(m_log->GetLength());
-
-    // Make read-only again
-    m_log->SetReadOnly(true);
-}
-
-void LogPanel::AppendStyledLog(const wxString& line, TextStyle defaultStyle)
-{
-    // Add timestamp if enabled
-    if (m_settings && m_settings->showTimestamps)
+    while (i < input.length())
     {
-        wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
-        wxString timestamp = wxDateTime::Now().Format(format);
-        AppendStyledText(timestamp, STYLE_TIMESTAMP);
+        wxChar ch = input[i];
+
+        // Color code: \x03
+        if (ch == 0x03)
+        {
+            // Save current segment if it has text
+            if (!current.text.IsEmpty())
+            {
+                segments.push_back(current);
+                current.text.Clear();
+            }
+
+            i++;
+
+            // Check if followed by color number
+            if (i < input.length() && wxIsdigit(input[i]))
+            {
+                // Parse foreground color (1-2 digits)
+                wxString fgStr;
+                while (i < input.length() && wxIsdigit(input[i]) && fgStr.length() < 2)
+                {
+                    fgStr += input[i++];
+                }
+
+                long fg;
+                if (fgStr.ToLong(&fg))
+                {
+                    current.foreground = GetIRCColor(fg);
+                    current.useDefaultFg = false;
+                }
+
+                // Check for background color (comma followed by 1-2 digits)
+                if (i < input.length() && input[i] == ',')
+                {
+                    i++;
+                    wxString bgStr;
+                    while (i < input.length() && wxIsdigit(input[i]) && bgStr.length() < 2)
+                    {
+                        bgStr += input[i++];
+                    }
+
+                    long bg;
+                    if (bgStr.ToLong(&bg))
+                    {
+                        current.background = GetIRCColor(bg);
+                        current.useDefaultBg = false;
+                    }
+                }
+            }
+            else
+            {
+                // \x03 alone resets colors
+                current.foreground = m_defaultForeground;
+                current.background = m_defaultBackground;
+                current.useDefaultFg = true;
+                current.useDefaultBg = true;
+            }
+        }
+        // Bold: \x02
+        else if (ch == 0x02)
+        {
+            if (!current.text.IsEmpty())
+            {
+                segments.push_back(current);
+                current.text.Clear();
+            }
+            current.bold = !current.bold;
+            i++;
+        }
+        // Italic: \x1D
+        else if (ch == 0x1D)
+        {
+            if (!current.text.IsEmpty())
+            {
+                segments.push_back(current);
+                current.text.Clear();
+            }
+            current.italic = !current.italic;
+            i++;
+        }
+        // Underline: \x1F
+        else if (ch == 0x1F)
+        {
+            if (!current.text.IsEmpty())
+            {
+                segments.push_back(current);
+                current.text.Clear();
+            }
+            current.underline = !current.underline;
+            i++;
+        }
+        // Reset: \x0F
+        else if (ch == 0x0F)
+        {
+            if (!current.text.IsEmpty())
+            {
+                segments.push_back(current);
+                current.text.Clear();
+            }
+            current.foreground = m_defaultForeground;
+            current.background = m_defaultBackground;
+            current.bold = false;
+            current.italic = false;
+            current.underline = false;
+            current.useDefaultFg = true;
+            current.useDefaultBg = true;
+            i++;
+        }
+        else
+        {
+            current.text += ch;
+            i++;
+        }
     }
 
-    // Append the main text with the specified style
-    AppendStyledText(line + "\n", defaultStyle);
+    // Add final segment
+    if (!current.text.IsEmpty())
+        segments.push_back(current);
+}
+
+// Append text with IRC color codes parsed
+void LogPanel::AppendIRCStyledText(const wxString& text)
+{
+    std::vector<IRCTextSegment> segments;
+    ParseIRCColors(text, segments);
+
+    for (const auto& seg : segments)
+    {
+        wxRichTextAttr attr;
+
+        // Set colors
+        if (!seg.useDefaultFg)
+            attr.SetTextColour(seg.foreground);
+        else
+            attr.SetTextColour(m_defaultForeground);
+
+        if (!seg.useDefaultBg)
+            attr.SetBackgroundColour(seg.background);
+
+        // Set font styling
+        wxFont font(10, wxFONTFAMILY_TELETYPE,
+                   seg.italic ? wxFONTSTYLE_ITALIC : wxFONTSTYLE_NORMAL,
+                   seg.bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL,
+                   seg.underline);
+        attr.SetFont(font);
+
+        // Append with style
+        m_log->BeginStyle(attr);
+        m_log->WriteText(seg.text);
+        m_log->EndStyle();
+    }
 }
 
 void LogPanel::AppendSystemMessage(const wxString& message)
@@ -160,10 +244,15 @@ void LogPanel::AppendSystemMessage(const wxString& message)
     {
         wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
         wxString timestamp = wxDateTime::Now().Format(format);
-        AppendStyledText(timestamp, STYLE_TIMESTAMP);
+        m_log->BeginTextColour(wxColour(128, 128, 128));  // Gray
+        m_log->WriteText(timestamp);
+        m_log->EndTextColour();
     }
 
-    AppendStyledText(message + "\n", STYLE_SYSTEM);
+    m_log->BeginTextColour(wxColour(100, 200, 100));  // Light green
+    m_log->WriteText(message + "\n");
+    m_log->EndTextColour();
+    m_log->ShowPosition(m_log->GetLastPosition());
 }
 
 void LogPanel::AppendErrorMessage(const wxString& message)
@@ -173,10 +262,17 @@ void LogPanel::AppendErrorMessage(const wxString& message)
     {
         wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
         wxString timestamp = wxDateTime::Now().Format(format);
-        AppendStyledText(timestamp, STYLE_TIMESTAMP);
+        m_log->BeginTextColour(wxColour(128, 128, 128));  // Gray
+        m_log->WriteText(timestamp);
+        m_log->EndTextColour();
     }
 
-    AppendStyledText(message + "\n", STYLE_ERROR);
+    m_log->BeginBold();
+    m_log->BeginTextColour(wxColour(255, 100, 100));  // Light red
+    m_log->WriteText(message + "\n");
+    m_log->EndTextColour();
+    m_log->EndBold();
+    m_log->ShowPosition(m_log->GetLastPosition());
 }
 
 void LogPanel::AppendChatMessage(const wxString& nick, const wxString& message)
@@ -186,14 +282,24 @@ void LogPanel::AppendChatMessage(const wxString& nick, const wxString& message)
     {
         wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
         wxString timestamp = wxDateTime::Now().Format(format);
-        AppendStyledText(timestamp, STYLE_TIMESTAMP);
+        m_log->BeginTextColour(wxColour(128, 128, 128));  // Gray
+        m_log->WriteText(timestamp);
+        m_log->EndTextColour();
     }
 
     // Format: <nick> message
-    AppendStyledText("<", STYLE_DEFAULT);
-    AppendStyledText(nick, STYLE_NICK);
-    AppendStyledText("> ", STYLE_DEFAULT);
-    AppendStyledText(message + "\n", STYLE_DEFAULT);
+    m_log->WriteText("<");
+    m_log->BeginBold();
+    m_log->BeginTextColour(wxColour(100, 200, 255));  // Light cyan/blue
+    m_log->WriteText(nick);
+    m_log->EndTextColour();
+    m_log->EndBold();
+    m_log->WriteText("> ");
+
+    // Message might contain IRC color codes
+    AppendIRCStyledText(message);
+    m_log->WriteText("\n");
+    m_log->ShowPosition(m_log->GetLastPosition());
 }
 
 void LogPanel::AppendNotice(const wxString& nick, const wxString& message)
@@ -203,14 +309,27 @@ void LogPanel::AppendNotice(const wxString& nick, const wxString& message)
     {
         wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
         wxString timestamp = wxDateTime::Now().Format(format);
-        AppendStyledText(timestamp, STYLE_TIMESTAMP);
+        m_log->BeginTextColour(wxColour(128, 128, 128));  // Gray
+        m_log->WriteText(timestamp);
+        m_log->EndTextColour();
     }
 
     // Format: -nick- message
-    AppendStyledText("-", STYLE_NOTICE);
-    AppendStyledText(nick, STYLE_NICK);
-    AppendStyledText("- ", STYLE_NOTICE);
-    AppendStyledText(message + "\n", STYLE_NOTICE);
+    m_log->BeginTextColour(wxColour(255, 180, 80));  // Orange
+    m_log->WriteText("-");
+    m_log->EndTextColour();
+
+    m_log->BeginBold();
+    m_log->BeginTextColour(wxColour(100, 200, 255));  // Light cyan/blue
+    m_log->WriteText(nick);
+    m_log->EndTextColour();
+    m_log->EndBold();
+
+    m_log->BeginTextColour(wxColour(255, 180, 80));  // Orange
+    m_log->WriteText("- ");
+    m_log->WriteText(message + "\n");
+    m_log->EndTextColour();
+    m_log->ShowPosition(m_log->GetLastPosition());
 }
 
 void LogPanel::AppendAction(const wxString& nick, const wxString& action)
@@ -220,13 +339,30 @@ void LogPanel::AppendAction(const wxString& nick, const wxString& action)
     {
         wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
         wxString timestamp = wxDateTime::Now().Format(format);
-        AppendStyledText(timestamp, STYLE_TIMESTAMP);
+        m_log->BeginTextColour(wxColour(128, 128, 128));  // Gray
+        m_log->WriteText(timestamp);
+        m_log->EndTextColour();
     }
 
     // Format: * nick action
-    AppendStyledText("* ", STYLE_ACTION);
-    AppendStyledText(nick + " ", STYLE_NICK);
-    AppendStyledText(action + "\n", STYLE_ACTION);
+    m_log->BeginItalic();
+    m_log->BeginTextColour(wxColour(200, 120, 255));  // Purple
+    m_log->WriteText("* ");
+    m_log->EndTextColour();
+    m_log->EndItalic();
+
+    m_log->BeginBold();
+    m_log->BeginTextColour(wxColour(100, 200, 255));  // Light cyan/blue
+    m_log->WriteText(nick + " ");
+    m_log->EndTextColour();
+    m_log->EndBold();
+
+    m_log->BeginItalic();
+    m_log->BeginTextColour(wxColour(200, 120, 255));  // Purple
+    m_log->WriteText(action + "\n");
+    m_log->EndTextColour();
+    m_log->EndItalic();
+    m_log->ShowPosition(m_log->GetLastPosition());
 }
 
 void LogPanel::AppendTopicMessage(const wxString& message)
@@ -236,41 +372,36 @@ void LogPanel::AppendTopicMessage(const wxString& message)
     {
         wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
         wxString timestamp = wxDateTime::Now().Format(format);
-        AppendStyledText(timestamp, STYLE_TIMESTAMP);
+        m_log->BeginTextColour(wxColour(128, 128, 128));  // Gray
+        m_log->WriteText(timestamp);
+        m_log->EndTextColour();
     }
 
-    AppendStyledText(message + "\n", STYLE_TOPIC);
+    m_log->BeginTextColour(wxColour(80, 220, 220));  // Bright cyan
+    m_log->WriteText(message + "\n");
+    m_log->EndTextColour();
+    m_log->ShowPosition(m_log->GetLastPosition());
 }
 
 void LogPanel::AppendLog(const wxString& line)
 {
-    wxString output;
-
     // Add timestamp if enabled
     if (m_settings && m_settings->showTimestamps)
     {
         wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
-        output = wxDateTime::Now().Format(format);
+        wxString timestamp = wxDateTime::Now().Format(format);
+        m_log->BeginTextColour(wxColour(128, 128, 128));  // Gray
+        m_log->WriteText(timestamp);
+        m_log->EndTextColour();
     }
 
-    output += line + "\n";
-
-    // Temporarily make writable to append text
-    m_log->SetReadOnly(false);
-    m_log->AppendText(output);
-
-    // Auto-scroll to bottom
-    m_log->GotoPos(m_log->GetLength());
-
-    // Make read-only again
-    m_log->SetReadOnly(true);
+    m_log->WriteText(line + "\n");
+    m_log->ShowPosition(m_log->GetLastPosition());
 }
 
 void LogPanel::Clear()
 {
-    m_log->SetReadOnly(false);
-    m_log->ClearAll();
-    m_log->SetReadOnly(true);
+    m_log->Clear();
 }
 
 void LogPanel::SetSettings(const AppSettings* settings)
@@ -299,95 +430,18 @@ void LogPanel::OnChar(wxKeyEvent& evt)
     }
 }
 
-wxString LogPanel::FindUrlAtPosition(int pos)
+void LogPanel::OnURL(wxTextUrlEvent& evt)
 {
-    // Get the line at the position
-    int line = m_log->LineFromPosition(pos);
-    wxString lineText = m_log->GetLine(line);
-
-    // Simple URL detection - look for http:// or https://
-    if (!lineText.Contains("http://") && !lineText.Contains("https://"))
-        return wxEmptyString;
-
-    // Find the URL in the line
-    int httpPos = lineText.Find("http://");
-    int httpsPos = lineText.Find("https://");
-    int urlStart = wxNOT_FOUND;
-
-    if (httpPos != wxNOT_FOUND && httpsPos != wxNOT_FOUND)
-        urlStart = wxMin(httpPos, httpsPos);
-    else if (httpPos != wxNOT_FOUND)
-        urlStart = httpPos;
-    else
-        urlStart = httpsPos;
-
-    if (urlStart == wxNOT_FOUND)
-        return wxEmptyString;
-
-    // Find the end of the URL (first whitespace or end of line)
-    int urlEnd = lineText.find_first_of(" \t\n\r", urlStart);
-    wxString url;
-    if (urlEnd == wxNOT_FOUND)
-        url = lineText.Mid(urlStart);
-    else
-        url = lineText.Mid(urlStart, urlEnd - urlStart);
-
-    // Remove trailing punctuation that's probably not part of the URL
-    while (!url.IsEmpty() && (url.Last() == '.' || url.Last() == ',' ||
-           url.Last() == ')' || url.Last() == ']' || url.Last() == '}'))
+    if (evt.GetMouseEvent().LeftDown())
     {
-        url.RemoveLast();
-    }
+        // Get the URL text
+        long urlStart = evt.GetURLStart();
+        long urlEnd = evt.GetURLEnd();
+        wxString url = m_log->GetRange(urlStart, urlEnd);
 
-    return url;
-}
-
-void LogPanel::OnLeftDown(wxMouseEvent& evt)
-{
-    // Only handle single clicks (not drags)
-    // Check if there's a selection - if so, user was dragging to select
-    if (m_log->GetSelectionEnd() > m_log->GetSelectionStart())
-    {
-        evt.Skip();
-        return;
-    }
-
-    // Get position clicked
-    int pos = m_log->PositionFromPoint(wxPoint(evt.GetX(), evt.GetY()));
-
-    // Find URL at this position
-    wxString url = FindUrlAtPosition(pos);
-
-    if (!url.IsEmpty())
-    {
+        // Launch the URL in default browser
         wxLaunchDefaultBrowser(url);
-        return;  // Don't skip - we handled it
     }
-
-    // Allow default handling
-    evt.Skip();
-}
-
-void LogPanel::OnMouseMove(wxMouseEvent& evt)
-{
-    // Get position under cursor
-    int pos = m_log->PositionFromPoint(wxPoint(evt.GetX(), evt.GetY()));
-
-    // Check if there's a URL at this position
-    wxString url = FindUrlAtPosition(pos);
-
-    if (!url.IsEmpty())
-    {
-        // Change cursor to hand/pointing finger
-        m_log->SetCursor(wxCursor(wxCURSOR_HAND));
-    }
-    else
-    {
-        // Reset to default cursor
-        m_log->SetCursor(wxCursor(wxCURSOR_IBEAM));
-    }
-
-    evt.Skip();
 }
 
 // -------- ChannelPage --------
