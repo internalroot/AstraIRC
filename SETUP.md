@@ -22,10 +22,10 @@ This guide will help you set up AstraIRC for development with Visual Studio and 
    $env:VCPKG_ROOT = "C:\vcpkg"
    setx VCPKG_ROOT "C:\vcpkg"
 
-   # Install wxWidgets
-   .\vcpkg install wxwidgets[aui]:x64-windows
+   # Install wxWidgets (AUI and STC libraries included by default in 3.3.1)
+   .\vcpkg install wxwidgets:x64-windows
    # For 32-bit:
-   # .\vcpkg install wxwidgets[aui]:x86-windows
+   # .\vcpkg install wxwidgets:x86-windows
    ```
 
 ### Linux
