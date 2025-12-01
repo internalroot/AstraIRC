@@ -45,6 +45,20 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
 
     // Bind URL click event
     m_log->Bind(wxEVT_TEXT_URL, &LogPanel::OnURL, this);
+
+    // CRITICAL: Prevent log area from ever holding focus
+    // When log area tries to get focus, immediately redirect to input box
+    m_log->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& evt) {
+        if (m_serverPanel) {
+            wxTextCtrl* input = m_serverPanel->GetInputCtrl();
+            if (input) {
+                // Return focus to input immediately
+                input->SetFocus();
+                return;  // Don't skip - we're handling this
+            }
+        }
+        evt.Skip();
+    });
 }
 
 // IRC color palette (mIRC standard colors)
