@@ -333,7 +333,19 @@ void ServerConnectionPanel::HandleRawLine(const wxString& line)
 
         if (IsChannelName(target))
         {
-            appendToChan(target, "<" + nick + "> " + trailing);
+            ChannelPage* page = GetOrCreateChannelPage(target);
+
+            // Check for CTCP ACTION (/me command)
+            if (trailing.StartsWith("\001ACTION ") && trailing.EndsWith("\001"))
+            {
+                wxString action = trailing.Mid(8);  // Skip "\001ACTION "
+                action = action.Left(action.Length() - 1);  // Remove trailing \001
+                page->AppendAction(nick, action);
+            }
+            else
+            {
+                page->AppendChatMessage(nick, trailing);
+            }
         }
         else
         {
@@ -351,7 +363,8 @@ void ServerConnectionPanel::HandleRawLine(const wxString& line)
 
         if (IsChannelName(target))
         {
-            appendToChan(target, "-" + nick + "- " + trailing);
+            ChannelPage* page = GetOrCreateChannelPage(target);
+            page->AppendNotice(nick, trailing);
         }
         else
         {

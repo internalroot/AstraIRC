@@ -20,6 +20,9 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
         wxDefaultPosition, wxDefaultSize,
         wxTE_READONLY | wxTE_MULTILINE | wxVSCROLL | wxTE_RICH2);
 
+    // Make absolutely sure it's not editable
+    m_log->SetEditable(false);
+
     // Set dark background and default colors
     m_log->SetBackgroundColour(m_defaultBackground);
 
@@ -663,6 +666,36 @@ void ChannelPage::SetSettings(const AppSettings* settings)
 {
     if (m_log)
         m_log->SetSettings(settings);
+}
+
+void ChannelPage::AppendChatMessage(const wxString& nick, const wxString& message)
+{
+    if (m_log)
+        m_log->AppendChatMessage(nick, message);
+}
+
+void ChannelPage::AppendNotice(const wxString& nick, const wxString& message)
+{
+    if (m_log)
+        m_log->AppendNotice(nick, message);
+}
+
+void ChannelPage::AppendAction(const wxString& nick, const wxString& action)
+{
+    if (m_log)
+        m_log->AppendAction(nick, action);
+}
+
+void ChannelPage::AppendSystemMessage(const wxString& message)
+{
+    if (m_log)
+        m_log->AppendSystemMessage(message);
+}
+
+void ChannelPage::AppendErrorMessage(const wxString& message)
+{
+    if (m_log)
+        m_log->AppendErrorMessage(message);
 }
 
 void ChannelPage::OnNickDoubleClick(wxCommandEvent& evt)

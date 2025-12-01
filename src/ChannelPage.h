@@ -66,6 +66,13 @@ public:
     const wxString& GetChannelName() const;
     void SetSettings(const AppSettings* settings);
 
+    // Forward to LogPanel's specialized methods
+    void AppendChatMessage(const wxString& nick, const wxString& message);
+    void AppendNotice(const wxString& nick, const wxString& message);
+    void AppendAction(const wxString& nick, const wxString& action);
+    void AppendSystemMessage(const wxString& message);
+    void AppendErrorMessage(const wxString& message);
+
 private:
     void OnNickDoubleClick(wxCommandEvent& evt);
 
