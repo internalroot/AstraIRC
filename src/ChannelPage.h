@@ -52,6 +52,8 @@ private:
     void InitializeStyles();
     void OnChar(wxKeyEvent& evt);
     void OnLeftDown(wxMouseEvent& evt);
+    void OnMouseMove(wxMouseEvent& evt);
+    wxString FindUrlAtPosition(int pos);
 
     wxStyledTextCtrl* m_log = nullptr;
     const AppSettings* m_settings = nullptr;
