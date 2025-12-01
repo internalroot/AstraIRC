@@ -4,12 +4,9 @@
     {
       "name": "windows-base",
       "hidden": true,
-      "generator": "Ninja",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "installDir": "${sourceDir}/out/install/${presetName}",
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "cl.exe",
-        "CMAKE_CXX_COMPILER": "cl.exe",
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
       },
       "condition": {
@@ -24,7 +21,7 @@
       "inherits": "windows-base",
       "architecture": {
         "value": "x64",
-        "strategy": "external"
+        "strategy": "set"
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -44,8 +41,8 @@
       "displayName": "x86 Debug",
       "inherits": "windows-base",
       "architecture": {
-        "value": "x86",
-        "strategy": "external"
+        "value": "Win32",
+        "strategy": "set"
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
