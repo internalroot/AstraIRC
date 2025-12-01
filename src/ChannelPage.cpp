@@ -26,6 +26,9 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
     m_log->StyleSetFont(wxSTC_STYLE_DEFAULT, font);
     m_log->StyleClearAll();  // Apply default style to all styles
 
+    // Initialize text styles (colors, bold, italic, etc.)
+    InitializeStyles();
+
     // Disable margins (line numbers, folding, etc.)
     m_log->SetMarginWidth(0, 0);
     m_log->SetMarginWidth(1, 0);
@@ -46,6 +49,180 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
 
     // Bind left mouse click event for URL detection
     m_log->Bind(wxEVT_LEFT_DOWN, &LogPanel::OnLeftDown, this);
+}
+
+void LogPanel::InitializeStyles()
+{
+    // Get the base monospace font
+    wxFont baseFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL);
+    wxFont boldFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD);
+    wxFont italicFont(10, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_ITALIC, wxFONTWEIGHT_NORMAL);
+
+    // STYLE_DEFAULT - Default text color
+    m_log->StyleSetFont(STYLE_DEFAULT, baseFont);
+    m_log->StyleSetForeground(STYLE_DEFAULT, wxColour(220, 220, 220));  // Light gray
+
+    // STYLE_TIMESTAMP - Gray, slightly dimmed
+    m_log->StyleSetFont(STYLE_TIMESTAMP, baseFont);
+    m_log->StyleSetForeground(STYLE_TIMESTAMP, wxColour(128, 128, 128));  // Gray
+
+    // STYLE_NICK - Cyan/Blue for nicknames
+    m_log->StyleSetFont(STYLE_NICK, boldFont);  // Bold nicknames
+    m_log->StyleSetForeground(STYLE_NICK, wxColour(100, 200, 255));  // Light cyan/blue
+
+    // STYLE_SYSTEM - Green for system messages
+    m_log->StyleSetFont(STYLE_SYSTEM, baseFont);
+    m_log->StyleSetForeground(STYLE_SYSTEM, wxColour(100, 200, 100));  // Light green
+
+    // STYLE_ERROR - Red for errors
+    m_log->StyleSetFont(STYLE_ERROR, boldFont);  // Bold errors
+    m_log->StyleSetForeground(STYLE_ERROR, wxColour(255, 100, 100));  // Light red
+
+    // STYLE_ACTION - Purple/Magenta for actions
+    m_log->StyleSetFont(STYLE_ACTION, italicFont);  // Italic actions
+    m_log->StyleSetForeground(STYLE_ACTION, wxColour(200, 120, 255));  // Purple
+
+    // STYLE_NOTICE - Yellow/Orange for notices
+    m_log->StyleSetFont(STYLE_NOTICE, baseFont);
+    m_log->StyleSetForeground(STYLE_NOTICE, wxColour(255, 180, 80));  // Orange
+
+    // STYLE_TOPIC - Bright cyan for topics
+    m_log->StyleSetFont(STYLE_TOPIC, baseFont);
+    m_log->StyleSetForeground(STYLE_TOPIC, wxColour(80, 220, 220));  // Bright cyan
+
+    // STYLE_URL - Bright blue, underlined for URLs
+    m_log->StyleSetFont(STYLE_URL, baseFont);
+    m_log->StyleSetForeground(STYLE_URL, wxColour(100, 150, 255));  // Bright blue
+    m_log->StyleSetUnderline(STYLE_URL, true);  // Underlined
+}
+
+void LogPanel::AppendStyledText(const wxString& text, TextStyle style)
+{
+    if (text.IsEmpty())
+        return;
+
+    // Temporarily make writable to append text
+    m_log->SetReadOnly(false);
+
+    // Get current position to start styling
+    int startPos = m_log->GetLength();
+
+    // Append the text
+    m_log->AppendText(text);
+
+    // Apply the style to the newly added text
+    int endPos = m_log->GetLength();
+    m_log->StartStyling(startPos);
+    m_log->SetStyling(endPos - startPos, style);
+
+    // Auto-scroll to bottom
+    m_log->GotoPos(m_log->GetLength());
+
+    // Make read-only again
+    m_log->SetReadOnly(true);
+}
+
+void LogPanel::AppendStyledLog(const wxString& line, TextStyle defaultStyle)
+{
+    // Add timestamp if enabled
+    if (m_settings && m_settings->showTimestamps)
+    {
+        wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
+        wxString timestamp = wxDateTime::Now().Format(format);
+        AppendStyledText(timestamp, STYLE_TIMESTAMP);
+    }
+
+    // Append the main text with the specified style
+    AppendStyledText(line + "\n", defaultStyle);
+}
+
+void LogPanel::AppendSystemMessage(const wxString& message)
+{
+    // Add timestamp if enabled
+    if (m_settings && m_settings->showTimestamps)
+    {
+        wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
+        wxString timestamp = wxDateTime::Now().Format(format);
+        AppendStyledText(timestamp, STYLE_TIMESTAMP);
+    }
+
+    AppendStyledText(message + "\n", STYLE_SYSTEM);
+}
+
+void LogPanel::AppendErrorMessage(const wxString& message)
+{
+    // Add timestamp if enabled
+    if (m_settings && m_settings->showTimestamps)
+    {
+        wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
+        wxString timestamp = wxDateTime::Now().Format(format);
+        AppendStyledText(timestamp, STYLE_TIMESTAMP);
+    }
+
+    AppendStyledText(message + "\n", STYLE_ERROR);
+}
+
+void LogPanel::AppendChatMessage(const wxString& nick, const wxString& message)
+{
+    // Add timestamp if enabled
+    if (m_settings && m_settings->showTimestamps)
+    {
+        wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
+        wxString timestamp = wxDateTime::Now().Format(format);
+        AppendStyledText(timestamp, STYLE_TIMESTAMP);
+    }
+
+    // Format: <nick> message
+    AppendStyledText("<", STYLE_DEFAULT);
+    AppendStyledText(nick, STYLE_NICK);
+    AppendStyledText("> ", STYLE_DEFAULT);
+    AppendStyledText(message + "\n", STYLE_DEFAULT);
+}
+
+void LogPanel::AppendNotice(const wxString& nick, const wxString& message)
+{
+    // Add timestamp if enabled
+    if (m_settings && m_settings->showTimestamps)
+    {
+        wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
+        wxString timestamp = wxDateTime::Now().Format(format);
+        AppendStyledText(timestamp, STYLE_TIMESTAMP);
+    }
+
+    // Format: -nick- message
+    AppendStyledText("-", STYLE_NOTICE);
+    AppendStyledText(nick, STYLE_NICK);
+    AppendStyledText("- ", STYLE_NOTICE);
+    AppendStyledText(message + "\n", STYLE_NOTICE);
+}
+
+void LogPanel::AppendAction(const wxString& nick, const wxString& action)
+{
+    // Add timestamp if enabled
+    if (m_settings && m_settings->showTimestamps)
+    {
+        wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
+        wxString timestamp = wxDateTime::Now().Format(format);
+        AppendStyledText(timestamp, STYLE_TIMESTAMP);
+    }
+
+    // Format: * nick action
+    AppendStyledText("* ", STYLE_ACTION);
+    AppendStyledText(nick + " ", STYLE_NICK);
+    AppendStyledText(action + "\n", STYLE_ACTION);
+}
+
+void LogPanel::AppendTopicMessage(const wxString& message)
+{
+    // Add timestamp if enabled
+    if (m_settings && m_settings->showTimestamps)
+    {
+        wxString format = m_settings->use24HourFormat ? "[%H:%M:%S] " : "[%I:%M:%S %p] ";
+        wxString timestamp = wxDateTime::Now().Format(format);
+        AppendStyledText(timestamp, STYLE_TIMESTAMP);
+    }
+
+    AppendStyledText(message + "\n", STYLE_TOPIC);
 }
 
 void LogPanel::AppendLog(const wxString& line)
