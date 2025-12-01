@@ -132,6 +132,8 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
         wxTextCoord col, row;
         wxTextCtrlHitTestResult result = m_log->HitTest(pt, &col, &row);
 
+        wxStockCursor desiredCursor = wxCURSOR_ARROW;
+
         if (result != wxTE_HT_UNKNOWN && result != wxTE_HT_BEYOND) {
             // Convert row to position
             long lineStart = m_log->XYToPosition(0, row);
@@ -170,15 +172,15 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
                 }
 
                 if (overURL) {
-                    m_log->SetCursor(wxCursor(wxCURSOR_HAND));
-                } else {
-                    m_log->SetCursor(wxCursor(wxCURSOR_ARROW));
+                    desiredCursor = wxCURSOR_HAND;
                 }
-            } else {
-                m_log->SetCursor(wxCursor(wxCURSOR_ARROW));
             }
-        } else {
-            m_log->SetCursor(wxCursor(wxCURSOR_ARROW));
+        }
+
+        // Only change cursor if it's different from current
+        if (desiredCursor != m_currentCursor) {
+            m_currentCursor = desiredCursor;
+            m_log->SetCursor(wxCursor(m_currentCursor));
         }
 
         evt.Skip();
@@ -444,10 +446,10 @@ void LogPanel::AppendIRCStyledText(const wxString& text)
                 // Style URL with bright blue color and underline
                 wxRichTextAttr urlAttr;
                 urlAttr.SetTextColour(wxColour(80, 160, 255));  // Bright blue
-                urlAttr.SetFontUnderlined(true);
                 wxFont urlFont(10, wxFONTFAMILY_TELETYPE,
                               wxFONTSTYLE_NORMAL,
-                              seg.bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL);
+                              seg.bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL,
+                              true);  // underlined = true
                 urlAttr.SetFont(urlFont);
                 m_log->BeginStyle(urlAttr);
                 m_log->WriteText(url);
