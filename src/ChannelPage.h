@@ -52,6 +52,7 @@ private:
     ServerConnectionPanel* m_serverPanel = nullptr;
     wxColour m_defaultForeground;
     wxColour m_defaultBackground;
+    wxStockCursor m_currentCursor = wxCURSOR_ARROW;
 };
 
 // A single channel tab: log on left, nick list on right

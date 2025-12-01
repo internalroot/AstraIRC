@@ -44,7 +44,7 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
     SetSizer(sizer);
 
     // Block ALL key events to prevent any editing
-    m_log->Bind(wxEVT_KEY_DOWN, [this](wxKeyEvent& evt) {
+    m_log->Bind(wxEVT_KEY_DOWN, [this](wxKeyEvent&) {
         // Consume all key events and redirect to input
         if (m_serverPanel) {
             wxTextCtrl* input = m_serverPanel->GetInputCtrl();
@@ -56,7 +56,7 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
     });
 
     // ALSO block CHAR events - critical to prevent text insertion!
-    m_log->Bind(wxEVT_CHAR, [this](wxKeyEvent& evt) {
+    m_log->Bind(wxEVT_CHAR, [this](wxKeyEvent&) {
         // Consume char events too - this prevents text from being inserted
         if (m_serverPanel) {
             wxTextCtrl* input = m_serverPanel->GetInputCtrl();
@@ -77,19 +77,18 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
             return;
         }
 
-        // Get click position
+        // Get click position using HitTest
         wxPoint pt = evt.GetPosition();
-        long pos = m_log->GetInsertionPoint();
+        wxTextCoord col, row;
+        wxTextCtrlHitTestResult result = m_log->HitTest(pt, &col, &row);
 
-        // Get the text at click position
-        wxRichTextLine* textLine = m_log->GetBuffer().GetLineAtPosition(pos);
-        if (!textLine) {
+        if (result == wxTE_HT_UNKNOWN || result == wxTE_HT_BEYOND) {
             evt.Skip();
             return;
         }
 
-        wxRichTextRange lineRange = textLine->GetAbsoluteRange();
-        wxString lineText = m_log->GetRange(lineRange.GetStart(), lineRange.GetEnd());
+        // Get the line text at this row
+        wxString lineText = m_log->GetLineText(row);
 
         // Simple URL detection
         int httpPos = lineText.Find("http://");
@@ -106,8 +105,8 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
             int urlEnd = lineText.find_first_of(" \t\n\r", urlStart);
             wxString url = (urlEnd == wxNOT_FOUND) ? lineText.Mid(urlStart) : lineText.Mid(urlStart, urlEnd - urlStart);
 
-            // Clean up trailing punctuation
-            while (!url.IsEmpty() && (url.Last() == '.' || url.Last() == ',' ||
+            // Clean up trailing punctuation (but not domain extensions!)
+            while (!url.IsEmpty() && (url.Last() == ',' ||
                    url.Last() == ')' || url.Last() == ']' || url.Last() == '}')) {
                 url.RemoveLast();
             }
@@ -126,31 +125,68 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
         evt.Skip();
     });
 
-    // Change cursor to hand over URLs (simple check)
+    // Change cursor to hand over URLs - check character position precisely
     m_log->Bind(wxEVT_MOTION, [this](wxMouseEvent& evt) {
         wxPoint pt = evt.GetPosition();
         wxTextCoord col, row;
         wxTextCtrlHitTestResult result = m_log->HitTest(pt, &col, &row);
 
-        if (result != wxTE_HT_UNKNOWN && result != wxTE_HT_BEYOND) {
-            // Get text of current line
-            wxString line = m_log->GetLineText(row);
+        wxStockCursor desiredCursor = wxCURSOR_ARROW;
 
-            // Simple check if line contains URL
-            if (line.Find("http://") != wxNOT_FOUND ||
-                line.Find("https://") != wxNOT_FOUND ||
-                line.Find("www.") != wxNOT_FOUND) {
-                m_log->SetCursor(wxCursor(wxCURSOR_HAND));
-            } else {
-                m_log->SetCursor(wxCursor(wxCURSOR_IBEAM));
+        if (result != wxTE_HT_UNKNOWN && result != wxTE_HT_BEYOND) {
+            // Convert row to position
+            long lineStart = m_log->XYToPosition(0, row);
+            if (lineStart >= 0) {
+                // Get the line at this row
+                wxString lineText = m_log->GetLineText(row);
+
+                // Find URLs in the line and check if cursor is over one
+                bool overURL = false;
+
+                // Find all URLs in line
+                size_t searchPos = 0;
+                while (searchPos < lineText.length()) {
+                    int httpPos = lineText.find("http://", searchPos);
+                    int httpsPos = lineText.find("https://", searchPos);
+                    int wwwPos = lineText.find("www.", searchPos);
+
+                    int foundPos = -1;
+                    if (httpPos != wxNOT_FOUND) foundPos = httpPos;
+                    if (httpsPos != wxNOT_FOUND && (foundPos == -1 || httpsPos < foundPos)) foundPos = httpsPos;
+                    if (wwwPos != wxNOT_FOUND && (foundPos == -1 || wwwPos < foundPos)) foundPos = wwwPos;
+
+                    if (foundPos == -1) break;
+
+                    // Find end of URL
+                    int urlEnd = lineText.find_first_of(" \t\n\r", foundPos);
+                    if (urlEnd == wxNOT_FOUND) urlEnd = lineText.length();
+
+                    // Check if cursor is within this URL range (use col for position in line)
+                    if (col >= foundPos && col < urlEnd) {
+                        overURL = true;
+                        break;
+                    }
+
+                    searchPos = urlEnd;
+                }
+
+                if (overURL) {
+                    desiredCursor = wxCURSOR_HAND;
+                }
             }
+        }
+
+        // Only change cursor if it's different from current
+        if (desiredCursor != m_currentCursor) {
+            m_currentCursor = desiredCursor;
+            m_log->SetCursor(wxCursor(m_currentCursor));
         }
 
         evt.Skip();
     });
 
     // CRITICAL: Prevent log area from ever holding focus
-    m_log->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& evt) {
+    m_log->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent&) {
         if (m_serverPanel) {
             wxTextCtrl* input = m_serverPanel->GetInputCtrl();
             if (input) {
@@ -158,7 +194,7 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
                 return;
             }
         }
-        evt.Skip();
+        // Don't skip - we handled it by redirecting focus
     });
 }
 
@@ -400,26 +436,25 @@ void LogPanel::AppendIRCStyledText(const wxString& text)
                 int urlEnd = remaining.find_first_of(" \t\n\r", urlPos);
                 wxString url = (urlEnd == wxNOT_FOUND) ? remaining.Mid(urlPos) : remaining.Mid(urlPos, urlEnd - urlPos);
 
-                // Clean trailing punctuation
-                while (!url.IsEmpty() && (url.Last() == '.' || url.Last() == ',' ||
+                // Clean trailing punctuation (but not domain extensions!)
+                while (!url.IsEmpty() && (url.Last() == ',' ||
                        url.Last() == ')' || url.Last() == ']' || url.Last() == '}')) {
                     url.RemoveLast();
                 }
 
-                // Style URL with blue color and underline
+                // Style URL with bright blue color and underline
                 wxRichTextAttr urlAttr;
-                urlAttr.SetTextColour(wxColour(100, 150, 255));  // Bright blue
+                urlAttr.SetTextColour(wxColour(80, 160, 255));  // Bright blue
                 wxFont urlFont(10, wxFONTFAMILY_TELETYPE,
                               wxFONTSTYLE_NORMAL,
                               seg.bold ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL,
-                              true);  // underlined
+                              true);  // underlined = true
                 urlAttr.SetFont(urlFont);
                 m_log->BeginStyle(urlAttr);
                 m_log->WriteText(url);
                 m_log->EndStyle();
 
                 // Update remaining
-                int consumedLen = urlPos + url.Length();
                 remaining = (urlEnd == wxNOT_FOUND) ? "" : remaining.Mid(urlEnd);
             }
         }
@@ -447,6 +482,9 @@ void LogPanel::AppendIRCStyledText(const wxString& text)
 
 void LogPanel::AppendSystemMessage(const wxString& message)
 {
+    // CRITICAL: Always append at the end, not at click position
+    m_log->SetInsertionPointEnd();
+
     // Add timestamp if enabled
     if (m_settings && m_settings->showTimestamps)
     {
@@ -465,6 +503,9 @@ void LogPanel::AppendSystemMessage(const wxString& message)
 
 void LogPanel::AppendErrorMessage(const wxString& message)
 {
+    // CRITICAL: Always append at the end, not at click position
+    m_log->SetInsertionPointEnd();
+
     // Add timestamp if enabled
     if (m_settings && m_settings->showTimestamps)
     {
@@ -485,6 +526,9 @@ void LogPanel::AppendErrorMessage(const wxString& message)
 
 void LogPanel::AppendChatMessage(const wxString& nick, const wxString& message)
 {
+    // CRITICAL: Always append at the end, not at click position
+    m_log->SetInsertionPointEnd();
+
     // Add timestamp if enabled
     if (m_settings && m_settings->showTimestamps)
     {
@@ -512,6 +556,9 @@ void LogPanel::AppendChatMessage(const wxString& nick, const wxString& message)
 
 void LogPanel::AppendNotice(const wxString& nick, const wxString& message)
 {
+    // CRITICAL: Always append at the end, not at click position
+    m_log->SetInsertionPointEnd();
+
     // Add timestamp if enabled
     if (m_settings && m_settings->showTimestamps)
     {
@@ -542,6 +589,9 @@ void LogPanel::AppendNotice(const wxString& nick, const wxString& message)
 
 void LogPanel::AppendAction(const wxString& nick, const wxString& action)
 {
+    // CRITICAL: Always append at the end, not at click position
+    m_log->SetInsertionPointEnd();
+
     // Add timestamp if enabled
     if (m_settings && m_settings->showTimestamps)
     {
@@ -575,6 +625,9 @@ void LogPanel::AppendAction(const wxString& nick, const wxString& action)
 
 void LogPanel::AppendTopicMessage(const wxString& message)
 {
+    // CRITICAL: Always append at the end, not at click position
+    m_log->SetInsertionPointEnd();
+
     // Add timestamp if enabled
     if (m_settings && m_settings->showTimestamps)
     {
@@ -593,6 +646,9 @@ void LogPanel::AppendTopicMessage(const wxString& message)
 
 void LogPanel::AppendLog(const wxString& line)
 {
+    // CRITICAL: Always append at the end, not at click position
+    m_log->SetInsertionPointEnd();
+
     // Add timestamp if enabled
     if (m_settings && m_settings->showTimestamps)
     {
