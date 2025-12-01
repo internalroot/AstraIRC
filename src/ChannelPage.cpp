@@ -44,7 +44,7 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
     SetSizer(sizer);
 
     // Block ALL key events to prevent any editing
-    m_log->Bind(wxEVT_KEY_DOWN, [this](wxKeyEvent& evt) {
+    m_log->Bind(wxEVT_KEY_DOWN, [this](wxKeyEvent&) {
         // Consume all key events and redirect to input
         if (m_serverPanel) {
             wxTextCtrl* input = m_serverPanel->GetInputCtrl();
@@ -56,7 +56,7 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
     });
 
     // ALSO block CHAR events - critical to prevent text insertion!
-    m_log->Bind(wxEVT_CHAR, [this](wxKeyEvent& evt) {
+    m_log->Bind(wxEVT_CHAR, [this](wxKeyEvent&) {
         // Consume char events too - this prevents text from being inserted
         if (m_serverPanel) {
             wxTextCtrl* input = m_serverPanel->GetInputCtrl();
@@ -129,21 +129,18 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
     // Change cursor to hand over URLs - check character position precisely
     m_log->Bind(wxEVT_MOTION, [this](wxMouseEvent& evt) {
         wxPoint pt = evt.GetPosition();
-        long pos = m_log->HitTest(pt, nullptr);
+        wxTextCoord col, row;
+        wxTextCtrlHitTestResult result = m_log->HitTest(pt, &col, &row);
 
-        if (pos != wxTE_HT_UNKNOWN && pos != wxTE_HT_BEYOND && pos >= 0) {
-            // Get the line containing this position
-            wxRichTextLine* textLine = m_log->GetBuffer().GetLineAtPosition(pos);
-            if (textLine) {
-                wxRichTextRange lineRange = textLine->GetAbsoluteRange();
-                wxString lineText = m_log->GetRange(lineRange.GetStart(), lineRange.GetEnd());
+        if (result != wxTE_HT_UNKNOWN && result != wxTE_HT_BEYOND) {
+            // Convert row to position
+            long lineStart = m_log->XYToPosition(0, row);
+            if (lineStart >= 0) {
+                // Get the line at this row
+                wxString lineText = m_log->GetLineText(row);
 
-                // Find URLs in the line
+                // Find URLs in the line and check if cursor is over one
                 bool overURL = false;
-                int urlStart = -1;
-
-                // Check each URL pattern
-                std::vector<std::pair<int, int>> urlRanges;
 
                 // Find all URLs in line
                 size_t searchPos = 0;
@@ -163,9 +160,8 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
                     int urlEnd = lineText.find_first_of(" \t\n\r", foundPos);
                     if (urlEnd == wxNOT_FOUND) urlEnd = lineText.length();
 
-                    // Check if cursor is within this URL range
-                    long relPos = pos - lineRange.GetStart();
-                    if (relPos >= foundPos && relPos < urlEnd) {
+                    // Check if cursor is within this URL range (use col for position in line)
+                    if (col >= foundPos && col < urlEnd) {
                         overURL = true;
                         break;
                     }
@@ -189,7 +185,7 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
     });
 
     // CRITICAL: Prevent log area from ever holding focus
-    m_log->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent& evt) {
+    m_log->Bind(wxEVT_SET_FOCUS, [this](wxFocusEvent&) {
         if (m_serverPanel) {
             wxTextCtrl* input = m_serverPanel->GetInputCtrl();
             if (input) {
@@ -197,7 +193,7 @@ LogPanel::LogPanel(wxWindow* parent, const AppSettings* settings, ServerConnecti
                 return;
             }
         }
-        evt.Skip();
+        // Don't skip - we handled it by redirecting focus
     });
 }
 
@@ -458,7 +454,6 @@ void LogPanel::AppendIRCStyledText(const wxString& text)
                 m_log->EndStyle();
 
                 // Update remaining
-                int consumedLen = urlPos + url.Length();
                 remaining = (urlEnd == wxNOT_FOUND) ? "" : remaining.Mid(urlEnd);
             }
         }
