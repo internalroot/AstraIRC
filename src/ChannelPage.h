@@ -1,7 +1,7 @@
 #pragma once
 
 #include <wx/panel.h>
-#include <wx/stc/stc.h>
+#include <wx/richtext/richtextctrl.h>
 #include <wx/listbox.h>
 #include <wx/sizer.h>
 #include <wx/string.h>
@@ -14,31 +14,11 @@ class ServerConnectionPanel;
 class LogPanel : public wxPanel
 {
 public:
-    // Text style IDs for different message types
-    enum TextStyle
-    {
-        STYLE_DEFAULT = 0,      // Default text (white/black depending on theme)
-        STYLE_TIMESTAMP,        // Timestamps (gray)
-        STYLE_NICK,            // Nicknames (cyan/blue)
-        STYLE_SYSTEM,          // System messages (green)
-        STYLE_ERROR,           // Error messages (red)
-        STYLE_ACTION,          // Action messages (purple/magenta)
-        STYLE_NOTICE,          // Notice messages (yellow/orange)
-        STYLE_TOPIC,           // Topic text (bright cyan)
-        STYLE_URL              // URLs (bright blue, underlined)
-    };
-
     explicit LogPanel(wxWindow* parent, const AppSettings* settings = nullptr, ServerConnectionPanel* serverPanel = nullptr);
 
     void AppendLog(const wxString& line);
     void Clear();
     void SetSettings(const AppSettings* settings);
-
-    // Append text with specific style
-    void AppendStyledText(const wxString& text, TextStyle style);
-
-    // Append multiple segments with different styles
-    void AppendStyledLog(const wxString& line, TextStyle defaultStyle = STYLE_DEFAULT);
 
     // Helper methods for common message types
     void AppendSystemMessage(const wxString& message);
@@ -48,16 +28,30 @@ public:
     void AppendAction(const wxString& nick, const wxString& action);
     void AppendTopicMessage(const wxString& message);
 
-private:
-    void InitializeStyles();
-    void OnChar(wxKeyEvent& evt);
-    void OnLeftDown(wxMouseEvent& evt);
-    void OnMouseMove(wxMouseEvent& evt);
-    wxString FindUrlAtPosition(int pos);
+    // IRC color code parsing
+    void AppendIRCStyledText(const wxString& text);
 
-    wxStyledTextCtrl* m_log = nullptr;
+private:
+    // IRC color code helpers
+    wxColour GetIRCColor(int colorCode);
+    struct IRCTextSegment
+    {
+        wxString text;
+        wxColour foreground;
+        wxColour background;
+        bool bold = false;
+        bool italic = false;
+        bool underline = false;
+        bool useDefaultFg = true;
+        bool useDefaultBg = true;
+    };
+    void ParseIRCColors(const wxString& input, std::vector<IRCTextSegment>& segments);
+
+    wxRichTextCtrl* m_log = nullptr;
     const AppSettings* m_settings = nullptr;
     ServerConnectionPanel* m_serverPanel = nullptr;
+    wxColour m_defaultForeground;
+    wxColour m_defaultBackground;
 };
 
 // A single channel tab: log on left, nick list on right
@@ -71,6 +65,13 @@ public:
     wxListBox* GetNickList();
     const wxString& GetChannelName() const;
     void SetSettings(const AppSettings* settings);
+
+    // Forward to LogPanel's specialized methods
+    void AppendChatMessage(const wxString& nick, const wxString& message);
+    void AppendNotice(const wxString& nick, const wxString& message);
+    void AppendAction(const wxString& nick, const wxString& action);
+    void AppendSystemMessage(const wxString& message);
+    void AppendErrorMessage(const wxString& message);
 
 private:
     void OnNickDoubleClick(wxCommandEvent& evt);
