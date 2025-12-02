@@ -74,6 +74,30 @@ cmake --build --preset linux-release
 cmake --build --preset linux-debug
 ```
 
+**Packaging for Distribution:**
+
+After building, package the binary for GitHub releases to preserve execute permissions:
+
+```bash
+./package-linux-release.sh
+```
+
+This creates a `.tar.gz` archive with proper permissions. Upload this archive to GitHub releases instead of the raw binary.
+
+**Note:** Raw Linux binaries uploaded to GitHub releases lose their execute permissions. Always package them in a `.tar.gz` archive to preserve permissions, or users will get "unknown file type" errors when trying to run the binary.
+
+**For Users Who Downloaded a Raw Binary:**
+
+If you downloaded a raw binary and get "unknown file type" errors:
+
+```bash
+# Make the binary executable
+chmod +x AstraIRC
+
+# Then run it
+./AstraIRC
+```
+
 ### For macOS
 
 ```bash
