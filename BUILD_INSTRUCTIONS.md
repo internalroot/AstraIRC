@@ -99,7 +99,16 @@ cmake --build --preset linux-debug
 
 **Binary Compatibility:**
 
-The Linux build uses static linking for the C++ standard library (`-static-libgcc -static-libstdc++`) to maximize compatibility across different Linux distributions. This avoids GLIBCXX version conflicts when running the binary on older distributions.
+The Linux build uses static linking for the C++ standard library (`-static-libgcc -static-libstdc++`) to avoid GLIBCXX version conflicts. However, GLIBC cannot be statically linked and determines the minimum supported distribution version.
+
+**For Release Builds:**
+
+To maximize compatibility, build on the **oldest supported LTS distribution**:
+- **Ubuntu 20.04 LTS** (GLIBC 2.31) - recommended for wide compatibility
+- **Ubuntu 22.04 LTS** (GLIBC 2.35) - good compatibility
+- **Ubuntu 24.04 LTS** (GLIBC 2.39) - only newer systems
+
+Binaries built on Ubuntu 24.04 will NOT work on older distributions due to GLIBC requirements. Always test on your target minimum distribution version.
 
 **Packaging for Distribution:**
 
@@ -125,12 +134,18 @@ chmod +x AstraIRC
 ./AstraIRC
 ```
 
-**Troubleshooting GLIBCXX Errors:**
+**Troubleshooting Library Errors:**
 
-If you see errors like `GLIBCXX_3.4.XX not found`, you're running a binary built on a newer system. Solutions:
-1. Download a binary built with static linking (post-v1.2.0 releases)
-2. Build from source on your system
-3. Update your system's libstdc++ (may require OS upgrade)
+**GLIBC errors** (`GLIBC_2.XX not found`):
+- Binary was built on a newer system than yours
+- Solution: Build from source on your system, or download a binary built on an older LTS
+
+**GLIBCXX errors** (`GLIBCXX_3.4.XX not found`):
+- Should not occur with static linking (post-v1.2.0 releases)
+- If it does: Build from source on your system
+
+**wxWidgets errors** (missing `.so` files):
+- Install wxWidgets runtime: `sudo apt install libwxgtk3.2-1` or `libwxgtk3.0-gtk3-0v5`
 
 ### For macOS
 

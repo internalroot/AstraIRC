@@ -37,7 +37,7 @@ Download the latest release from the [Releases](https://github.com/internalroot/
 2. Extract the archive: `tar -xzf AstraIRC-v*.tar.gz`
 3. Run the application: `cd AstraIRC-v*-linux-x64 && ./AstraIRC`
 
-**Note:** The binary is statically linked with the C++ standard library for maximum compatibility across Linux distributions. wxWidgets libraries are still required at runtime.
+**Note:** The binary is statically linked with the C++ standard library to avoid GLIBCXX issues. However, it still requires a compatible GLIBC version. If you get GLIBC errors, your distribution is older than the build system - build from source instead.
 
 **Prerequisites (if needed):**
 
@@ -60,6 +60,16 @@ If you get "unknown file type" when double-clicking:
 ```bash
 chmod +x AstraIRC
 ./AstraIRC
+```
+
+If you get `GLIBC_2.XX not found` errors:
+```bash
+# Your system is older than the build system
+# Build from source instead (see Building section below)
+sudo apt install build-essential cmake libwxgtk3.2-dev
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+./build/AstraIRC
 ```
 
 ## Building
