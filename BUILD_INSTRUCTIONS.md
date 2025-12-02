@@ -6,6 +6,8 @@ If you're seeing linker errors about library machine type conflicts (x86 vs x64)
 
 ### For Windows (x64 build) - RECOMMENDED
 
+> **📦 Packaging for Distribution?** See [WINDOWS_PACKAGING.md](WINDOWS_PACKAGING.md) for complete packaging instructions and DLL dependency management.
+
 1. **Clean the build output and vcpkg cache:**
    ```powershell
    # Remove the out directory (contains build files)
@@ -18,19 +20,33 @@ If you're seeing linker errors about library machine type conflicts (x86 vs x64)
    Remove-Item -Recurse -Force vcpkg_installed -ErrorAction SilentlyContinue
    ```
 
-2. **Configure with CMake using the x64 preset:**
+2. **Configure with CMake using a preset:**
    ```powershell
+   # For distribution (static linking - no DLLs needed):
+   cmake --preset x64-release-static
+
+   # For development (dynamic linking - faster builds):
    cmake --preset x64-release
-   # or for debug build:
+
+   # For debugging:
    cmake --preset x64-debug
    ```
 
 3. **Build the project:**
    ```powershell
+   # Static release (recommended for distribution):
+   cmake --build --preset x64-release-static
+
+   # Dynamic release:
    cmake --build --preset x64-release
-   # or for debug build:
+
+   # Debug:
    cmake --build --preset x64-debug
    ```
+
+**Build Types:**
+- **Static (`x64-release-static`)**: Single executable, no DLLs needed, best for distribution
+- **Dynamic (`x64-release`)**: Smaller executable, requires DLLs, faster builds
 
 ### For Windows (x86 build)
 
@@ -45,15 +61,25 @@ If you specifically want to build a 32-bit version:
 
 2. **Configure with CMake using the x86 preset:**
    ```powershell
+   # For distribution (static linking):
+   cmake --preset x86-release-static
+
+   # For development (dynamic linking):
    cmake --preset x86-release
-   # or for debug build:
+
+   # For debugging:
    cmake --preset x86-debug
    ```
 
 3. **Build the project:**
    ```powershell
+   # Static release:
+   cmake --build --preset x86-release-static
+
+   # Dynamic release:
    cmake --build --preset x86-release
-   # or for debug build:
+
+   # Debug:
    cmake --build --preset x86-debug
    ```
 
