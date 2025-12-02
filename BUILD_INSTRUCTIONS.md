@@ -74,6 +74,41 @@ cmake --build --preset linux-release
 cmake --build --preset linux-debug
 ```
 
+**Binary Compatibility:**
+
+The Linux build uses static linking for the C++ standard library (`-static-libgcc -static-libstdc++`) to maximize compatibility across different Linux distributions. This avoids GLIBCXX version conflicts when running the binary on older distributions.
+
+**Packaging for Distribution:**
+
+After building, package the binary for GitHub releases to preserve execute permissions:
+
+```bash
+./package-linux-release.sh
+```
+
+This creates a `.tar.gz` archive with proper permissions. Upload this archive to GitHub releases instead of the raw binary.
+
+**Note:** Raw Linux binaries uploaded to GitHub releases lose their execute permissions. Always package them in a `.tar.gz` archive to preserve permissions, or users will get "unknown file type" errors when trying to run the binary.
+
+**For Users Who Downloaded a Raw Binary:**
+
+If you downloaded a raw binary and get "unknown file type" errors:
+
+```bash
+# Make the binary executable
+chmod +x AstraIRC
+
+# Then run it
+./AstraIRC
+```
+
+**Troubleshooting GLIBCXX Errors:**
+
+If you see errors like `GLIBCXX_3.4.XX not found`, you're running a binary built on a newer system. Solutions:
+1. Download a binary built with static linking (post-v1.2.0 releases)
+2. Build from source on your system
+3. Update your system's libstdc++ (may require OS upgrade)
+
 ### For macOS
 
 ```bash
