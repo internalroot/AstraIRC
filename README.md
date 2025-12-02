@@ -74,17 +74,23 @@ chmod +x AstraIRC
 
 ### Windows (with vcpkg)
 
+> **💡 Using Visual Studio?** See [SETUP.md](SETUP.md) for detailed Visual Studio setup instructions.
+> **📦 Packaging for distribution?** See [WINDOWS_PACKAGING.md](WINDOWS_PACKAGING.md) for DLL dependency management.
+
 ```powershell
 # Install vcpkg if you haven't
 git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
 C:\vcpkg\bootstrap-vcpkg.bat
+# Set VCPKG_ROOT environment variable
+$env:VCPKG_ROOT = "C:\vcpkg"
 
-# Install wxWidgets
-C:\vcpkg\vcpkg install wxwidgets:x64-windows
+# Build AstraIRC (static linking - no DLLs needed)
+cmake --preset x64-release-static
+cmake --build --preset x64-release-static
 
-# Build AstraIRC
-cmake -B build -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
-cmake --build build --config Release
+# Or build with dynamic linking (requires DLLs)
+cmake --preset x64-release
+cmake --build --preset x64-release
 ```
 
 ### macOS (with Homebrew)
