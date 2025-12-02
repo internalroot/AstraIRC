@@ -50,9 +50,13 @@ target_include_directories(AstraIRC PRIVATE ${CMAKE_SOURCE_DIR}/src)
 # Link wxWidgets libraries (MODULE mode provides wxWidgets_LIBRARIES variable)
 target_link_libraries(AstraIRC PRIVATE ${wxWidgets_LIBRARIES})
 
-# Platform-specific libraries
+# Platform-specific libraries and linking
 if(WIN32)
     target_link_libraries(AstraIRC PRIVATE ws2_32)
+elseif(UNIX AND NOT APPLE)
+    # Static link C++ standard library for better Linux compatibility
+    # This avoids GLIBCXX version conflicts on older distributions
+    target_link_options(AstraIRC PRIVATE -static-libgcc -static-libstdc++)
 endif()
 
 # Compiler warnings
