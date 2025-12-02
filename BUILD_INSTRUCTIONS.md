@@ -59,6 +59,27 @@ If you specifically want to build a 32-bit version:
 
 ### For Linux
 
+**Option 1: Simple Build (Recommended)**
+
+Uses system-installed wxWidgets. No vcpkg required.
+
+```bash
+# Install dependencies (Debian/Ubuntu example)
+sudo apt update
+sudo apt install build-essential cmake libwxgtk3.2-dev
+
+# Clean and build
+rm -rf build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+
+# Binary location: build/AstraIRC
+```
+
+**Option 2: Build with vcpkg (For reproducible builds)**
+
+Requires vcpkg installation and VCPKG_ROOT environment variable.
+
 ```bash
 # Clean build
 rm -rf out build vcpkg_installed
@@ -72,6 +93,8 @@ cmake --preset linux-debug
 cmake --build --preset linux-release
 # or for debug:
 cmake --build --preset linux-debug
+
+# Binary location: out/build/linux-release/AstraIRC
 ```
 
 **Binary Compatibility:**

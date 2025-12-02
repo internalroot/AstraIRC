@@ -32,11 +32,20 @@ Download the latest release from the [Releases](https://github.com/internalroot/
 
 ### Linux
 
-**Prerequisites:** wxWidgets 3.2 runtime libraries are required.
+**Installation:**
+1. Download the `.tar.gz` file from [Releases](https://github.com/internalroot/AstraIRC/releases)
+2. Extract the archive: `tar -xzf AstraIRC-v*.tar.gz`
+3. Run the application: `cd AstraIRC-v*-linux-x64 && ./AstraIRC`
+
+**Note:** The binary is statically linked with the C++ standard library for maximum compatibility across Linux distributions. wxWidgets libraries are still required at runtime.
+
+**Prerequisites (if needed):**
+
+Most modern distributions include the required wxWidgets libraries. If you get missing library errors, install:
 
 ```bash
 # Debian/Ubuntu
-sudo apt-get install libwxgtk3.2-1
+sudo apt-get install libwxgtk3.2-1 libwxgtk3.0-gtk3-0v5
 
 # Fedora
 sudo dnf install wxGTK3
@@ -45,10 +54,13 @@ sudo dnf install wxGTK3
 sudo pacman -S wxwidgets-gtk3
 ```
 
-**Installation:**
-1. Download `AstraIRC-Linux.tar.gz`
-2. Extract the archive: `tar -xzf AstraIRC-Linux.tar.gz`
-3. Run the application: `./AstraIRC-Linux/AstraIRC`
+**Troubleshooting:**
+
+If you get "unknown file type" when double-clicking:
+```bash
+chmod +x AstraIRC
+./AstraIRC
+```
 
 ## Building
 
@@ -86,39 +98,33 @@ cmake -B build
 cmake --build build
 ```
 
-### Linux (Debian/Ubuntu)
+### Linux
+
+**Simple Build (Recommended for most users):**
 
 ```bash
-# Install dependencies
+# Debian/Ubuntu
 sudo apt update
 sudo apt install build-essential cmake libwxgtk3.2-dev
-
-# Build AstraIRC
-cmake -B build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-```
 
-### Linux (Fedora)
-
-```bash
-# Install dependencies
+# Fedora
 sudo dnf install cmake gcc-c++ wxGTK-devel
-
-# Build AstraIRC
-cmake -B build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-```
 
-### Linux (Arch)
-
-```bash
-# Install dependencies
+# Arch Linux
 sudo pacman -S cmake wxwidgets-gtk3
-
-# Build AstraIRC
-cmake -B build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
+
+**Build with vcpkg (for reproducible builds):**
+
+See [BUILD_INSTRUCTIONS.md](BUILD_INSTRUCTIONS.md) for detailed vcpkg setup and CMake preset usage.
+
+The Linux build automatically enables static linking of the C++ standard library (`-static-libgcc -static-libstdc++`) for better compatibility across distributions.
 
 ## Running
 
