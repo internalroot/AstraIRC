@@ -26,10 +26,10 @@ AstraIRC follows [Semantic Versioning 2.0.0](https://semver.org/):
 
 - **v1.0.0** - Initial release with basic IRC features ✅
 - **v1.1.0** - Stability & usability improvements ✅
-- **v1.2.0** - User profiles & accounts 🚧 *Next milestone*
-- **v1.3.0** - Channel management
-- **v1.4.0** - Messaging & notifications
-- **v1.5.0** - Settings & persistence
+- **v1.2.0** - User profiles & accounts ✅
+- **v1.3.0** - Discord-style UI & settings 🚧 *Next milestone*
+- **v1.4.0** - Private messaging & notifications
+- **v1.5.0** - Channel management
 - **v1.6.0** - Advanced IRC features
 - **v1.7.0** - Polish & UX
 - **v2.0.0** - Release ready
@@ -141,10 +141,9 @@ git show v1.1.0
 
 ## Current Status
 
-- **Current Version**: v1.1.0
-- **Next Milestone**: v1.2.0 - User Profiles
-- **Branch**: claude/version-tracking-setup-01NPGTi7Ms6K68VmUvumy4hi
+- **Current Version**: v1.2.0
+- **Next Milestone**: v1.3.0 - Discord-Style UI & Settings
 
 ---
 
-*Last updated: November 2025*
+*Last updated: December 2025*

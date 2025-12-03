@@ -105,11 +105,69 @@ Cross-platform IRC client built with C++ and wxWidgets.
 
 ---
 
-### Phase 3: Channel Management
+### Phase 3: UI Redesign & Persistence
 
-#### AstraIRC v1.3.0 — Channel Management Window
+#### AstraIRC v1.3.0 — Discord-Style UI & Settings
 
-- [ ] **Channel Options Window** — Double-click channel log to open:
+- [ ] **Server sidebar redesign** — Replace nested server tabs with Discord-style sidebar:
+  - Server list panel on the left side
+  - Click server to switch context
+  - Connection status indicators (● connected, ○ disconnected)
+  - Activity/unread indicators per server
+  - Right-click context menu (Connect, Disconnect, Edit, Remove)
+  - Clean, modern layout without nested tabs
+
+- [ ] **Server list manager** — Add/edit/remove servers (integrates with sidebar):
+  - Server address, port
+  - SSL/TLS toggle (ready for v1.6.0)
+  - Nickname + alternative nicks
+  - Server password
+  - Auto-join channels list
+  - Auto-perform commands on connect
+  - Save to settings file
+
+- [ ] **Settings file** — JSON format, auto-save:
+  - Server list with all configurations
+  - User preferences
+  - Window state (size, position)
+  - Per-server settings
+
+- [ ] **Preferences dialog** — Complete the partially-implemented dialog:
+  - **General tab**: Timestamps (on/off, 12h/24h), auto-reconnect toggle (already working)
+  - **Notifications tab**: Sound alerts, desktop notifications, highlight words
+  - **Appearance tab**: Font selection, color schemes
+  - **Logging tab**: Enable/disable chat logging, file location
+
+- [ ] **Nick alternatives** — Handle nick collisions gracefully:
+  - Try nick_, nick__, etc. on 433 (nickname in use)
+  - Configurable alternative nick list per server
+
+- [ ] **Window state persistence** — Remember window size, position, and layout
+
+---
+
+### Phase 4: Private Messaging & Notifications
+
+#### AstraIRC v1.4.0 — Private Messaging & Notifications
+
+- [ ] **Private message tabs** — Separate tabs for PMs
+- [ ] **Tab highlighting**:
+  - New messages (one color)
+  - Mentions of your nick (different color)
+  - Activity indicator
+- [ ] **Nick highlighting** — Highlight messages containing your nick
+- [ ] **Desktop notifications** — System notifications for mentions/PMs (toggleable)
+- [ ] **Sound alerts** — Optional sounds (toggleable)
+- [ ] **Away integration** — /away command, show in profiles
+- [ ] **Ignore list** — /ignore command, manageable in preferences
+
+---
+
+### Phase 5: Channel Management
+
+#### AstraIRC v1.5.0 — Channel Management Window
+
+- [ ] **Channel Options Window** — Double-click channel tab to open:
 
   **Info Tab:**
   - Channel name, creation date
@@ -141,54 +199,9 @@ Cross-platform IRC client built with C++ and wxWidgets.
 - [ ] **Permission-aware UI** — Controls enable/disable based on status
 - [ ] **Real-time updates** — Track mode changes live
 - [ ] **Context menu alternative** — Right-click tab for quick access
+- [ ] **Chat logging** — Save channel logs to files (per-channel toggle)
 
----
-
-### Phase 4: Messaging & Notifications
-
-#### AstraIRC v1.4.0 — Private Messaging & Notifications
-
-- [ ] **Private message tabs** — Separate tabs for PMs
-- [ ] **Tab highlighting**:
-  - New messages (one color)
-  - Mentions of your nick (different color)
-  - Activity indicator
-- [ ] **Nick highlighting** — Highlight messages containing your nick
-- [ ] **Desktop notifications** — System notifications for mentions/PMs (toggleable)
-- [ ] **Sound alerts** — Optional sounds (toggleable)
-- [ ] **Away integration** — /away command, show in profiles
-- [ ] **Ignore list** — /ignore command, manageable in preferences
-
----
-
-### Phase 5: Configuration & Persistence
-
-#### AstraIRC v1.5.0 — Settings & Persistence
-
-- [ ] **Settings file** — JSON format, auto-save
-
-- [ ] **Preferences dialog** — Partially implemented:
-  - [x] **General**: Timestamps (on/off, 12h/24h), auto-reconnect toggle
-  - [ ] **Notifications**: Sounds, desktop notifications, highlight words
-  - [ ] **Appearance**: Fonts, colors
-  - [ ] **Logging**: Enable/disable, file location
-
-- [ ] **Server list manager**:
-  - Save favorite servers
-  - Address, port, SSL toggle
-  - Nickname + alternatives
-  - Server password
-  - Auto-join channels
-  - Perform commands
-  - Account credentials (LuminaCore)
-
-- [ ] **Nick alternatives** — Try nick_, nick__ on 433
-
-- [ ] **Window state** — Remember size, position, tabs
-
-- [ ] **Chat logging** — Save to files
-
-- [ ] **LuminaCore account UI**:
+- [ ] **LuminaCore account UI** (optional, may defer):
   - Registration dialog
   - Login dialog
   - Auto-login option
@@ -308,4 +321,4 @@ Cross-platform IRC client built with C++ and wxWidgets.
 
 ---
 
-*Last updated: November 2025*
+*Last updated: December 2025*
