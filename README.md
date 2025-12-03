@@ -8,11 +8,27 @@ A modern, cross-platform IRC client built with wxWidgets and C++17.
 
 ## Features
 
+### Core IRC (v1.0.0)
 - Multi-channel support with tabbed interface
 - Real-time nick list updates
-- Timestamps on all messages
-- Support for standard IRC commands (`/join`, `/part`, `/nick`, `/msg`, `/me`, etc.)
+- Support for standard IRC commands (`/join`, `/part`, `/nick`, `/msg`, `/me`, `/quit`, `/raw`)
 - Cross-platform (Windows, macOS, Linux)
+
+### Stability & Usability (v1.1.0)
+- Auto-reconnect with toggle (enable/disable in preferences)
+- Server password support (PASS command)
+- Input history (up/down arrows to recall commands)
+- Clickable URLs (auto-detected, opens in browser)
+- Configurable timestamps (toggle on/off, 12-hour or 24-hour format)
+- Window title updates (shows activity/current channel)
+- Tab completion (complete nicks and commands with Tab key)
+
+### User Profiles (v1.2.0)
+- Multiple server connections (each server in its own tab)
+- User Profile Window (double-click nick to view WHOIS info)
+- WHOIS integration with detailed user information
+- Server role display (Owner, Admin, Operator, Helper - ready for LuminaCore)
+- Channel role display (Owner ~, Op @, Half-Op %, Voice +)
 
 ## Installation (Prebuilt Binaries)
 
@@ -183,17 +199,21 @@ AstraIRC/
     └── irc_core.cpp/h      # IRC protocol implementation
 ```
 
-## Future Improvements
+## Roadmap
 
-- [ ] SSL/TLS support
-- [ ] Multiple server connections
-- [ ] Server list with favorites
-- [ ] User preferences (save/load)
-- [ ] Nick/channel auto-completion
-- [ ] Input history (up/down arrows)
-- [ ] Color and formatting support
-- [ ] DCC file transfers
-- [ ] Notification system
+See [AstraIRC_ROADMAP.md](AstraIRC_ROADMAP.md) for the complete development roadmap.
+
+### Next Up: Phase 3 (v1.3.0) — Discord-Style UI & Settings
+- Server sidebar (replace nested tabs with modern Discord-style layout)
+- Server list manager (add/edit/remove servers, auto-join channels)
+- Settings persistence (save preferences, server list, window state)
+- Complete preferences dialog (notifications, appearance, logging)
+
+### Coming Soon:
+- Private message tabs with activity indicators (v1.4.0)
+- Channel management window (v1.5.0)
+- SSL/TLS support (v1.6.0)
+- Themes and polish (v1.7.0)
 
 ## License
 
